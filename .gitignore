@@ -1,0 +1,21 @@
+# Segredos
+.env
+
+# Ambiente Python
+venv/
+__pycache__/
+*.pyc
+
+# Dados baixados (grandes, não devem ir pro Git — cada dev baixa localmente)
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# FAISS / índices gerados
+*.faiss
+*.index
+
+# SO
+.DS_Store
+Thumbs.db

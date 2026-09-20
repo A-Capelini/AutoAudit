@@ -1,0 +1,30 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: autoaudit-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-autoaudit}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASS:-autoaudit_dev_pw}
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME:-autoaudit}
+    volumes:
+      - mongo_data:/data/db
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: autoaudit-mongo-ui
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_ROOT_USER:-autoaudit}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_ROOT_PASS:-autoaudit_dev_pw}
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_ROOT_USER:-autoaudit}:${MONGO_ROOT_PASS:-autoaudit_dev_pw}@mongodb:27017/
+      ME_CONFIG_BASICAUTH: "false"
+
+volumes:
+  mongo_data:
