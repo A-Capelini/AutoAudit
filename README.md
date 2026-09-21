@@ -10,7 +10,8 @@ aquisição de dataset. Cobre a entrega da **Sprint 1** do cronograma
 autoaudit-starter/
 ├── docker-compose.yml      # MongoDB + interface web (mongo-express)
 ├── .env.example             # copie para .env e preencha
-├── requirements.txt
+├── requirements.txt          # mantido como referência (não usado no setup — veja environment.yml)
+├── environment.yml           # ambiente conda-forge (use este no setup)
 ├── data/
 │   ├── raw/                 # arquivos baixados (não vai pro Git)
 │   └── processed/           # dados limpos/estruturados (não vai pro Git)
@@ -25,12 +26,12 @@ autoaudit-starter/
 
 1. Instale o **Docker Desktop** (usa WSL2 por baixo — o instalador configura
    sozinho na maioria dos casos).
-2. Instale o **Python 3.11+** (python.org ou Microsoft Store).
-3. Abra o PowerShell na pasta do projeto:
+2. Instale o **Miniforge** (conda-forge como canal padrão, mais leve que o
+   Anaconda completo): https://github.com/conda-forge/miniforge
+3. Abra o "Miniforge Prompt" na pasta do projeto:
    ```powershell
-   python -m venv venv
-   venv\Scripts\activate
-   pip install -r requirements.txt
+   conda env create -f environment.yml
+   conda activate autoaudit
    copy .env.example .env
    ```
 4. Suba o MongoDB:
@@ -42,17 +43,28 @@ autoaudit-starter/
 
 1. Instale Docker + Docker Compose (`sudo apt install docker.io docker-compose-plugin`
    ou o script oficial `get-docker.sh`).
-2. Na pasta do projeto:
+2. Instale o Miniforge, se ainda não tiver: https://github.com/conda-forge/miniforge
+3. Na pasta do projeto:
    ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
+   conda env create -f environment.yml
+   conda activate autoaudit
    cp .env.example .env
    ```
-3. Suba o MongoDB:
+4. Suba o MongoDB:
    ```bash
    docker compose up -d
    ```
+
+Use um ambiente **`autoaudit`** dedicado, separado do `nlp-analyzer` que você
+já usa pros outros trabalhos de PLN — a stack aqui (LangChain, FAISS,
+MongoDB, python-nmap) é mais pesada e específica, e misturar aumenta o
+risco de quebrar algo que já está funcionando numa tarefa entregue.
+
+O `environment.yml` já separa os pacotes: os que têm build binária pesada
+(`faiss-cpu` principalmente) vêm do conda-forge; os que mudam rápido demais
+pro conda-forge acompanhar (LangChain, sentence-transformers, python-nmap)
+vêm do pip, instalados dentro do próprio ambiente conda. O `torch` também
+é forçado pra build CPU-only, já que a máquina não tem GPU dedicada.
 
 Em ambos os casos, o `docker-compose.yml` é o mesmo arquivo — essa é
 literalmente a vantagem de rodar o banco em container em vez de instalar o
@@ -66,7 +78,7 @@ mesmo ambiente.
 
 ## Baixar o dataset
 
-Com o venv ativado:
+Com o ambiente conda ativado:
 
 ```bash
 python scripts/download_nist_oscal.py
