@@ -1,0 +1,36 @@
+# Ambiente Conda de desenvolvimento do AutoAudit (replicação em outras máquinas).
+# Criar:     conda env create -f setup/environment.yml
+# Atualizar: conda env update -f setup/environment.yml --prune
+# Fica em setup/ de propósito: o Streamlit Cloud não o enxerga e usa o requirements.txt da raiz.
+name: autoaudit
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  # Frontend (Sprint 1)
+  - streamlit>=1.50
+  - pandas
+  # Ingestão e utilitários
+  - requests
+  - python-dotenv
+  - pypdf
+  - beautifulsoup4
+  - lxml
+  - openpyxl
+  - python-docx
+  # Banco de dados (Sprint 2)
+  - pymongo
+  # Backend (Sprint 3)
+  - fastapi
+  - uvicorn
+  # Busca semântica / PLN (Sprints 2-3)
+  - faiss-cpu
+  - sentence-transformers
+  - langchain
+  # Verificação prática (Sprint 4)
+  - python-nmap
+  - pip
+  # Pacotes sem build confiável no conda-forge: confira com `conda search -c conda-forge <pacote>`
+  # e, se faltar, mova-o para cá.
+  - pip:
+      - langchain-community

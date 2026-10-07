@@ -1,10 +1,15 @@
 # Segredos
 .env
+.streamlit/secrets.toml
 
 # Ambiente Python
 venv/
+.venv/
 __pycache__/
 *.pyc
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
 
 # Dados baixados (grandes, não devem ir pro Git — cada dev baixa localmente)
 data/raw/*
@@ -19,3 +24,4 @@ data/processed/*
 # SO
 .DS_Store
 Thumbs.db
+.streamlit/secrets.toml

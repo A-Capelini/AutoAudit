@@ -1,27 +1,4 @@
-# --- Ingestão e utilitários (Sprint 1) ---
-requests>=2.31
-python-dotenv>=1.0
-pypdf>=4.0
-beautifulsoup4>=4.12
-lxml>=5.0
-
-# --- Banco de dados ---
-pymongo>=4.6
-
-# --- Busca semântica (RAG) ---
-sentence-transformers>=2.5
-faiss-cpu>=1.8
-
-# --- Backend (Sprint 3) ---
-fastapi>=0.110
-uvicorn[standard]>=0.29
-
-# --- Motor de PLN (Sprint 2) ---
-langchain>=0.1
-langchain-community>=0.0.30
-
-# --- Interface (Sprint 5) ---
-streamlit>=1.32
-
-# --- Verificação Prática (Sprint 4) ---
-python-nmap>=0.7
+# Dependências MÍNIMAS para o deploy no Streamlit Community Cloud.
+# Para o ambiente completo de desenvolvimento (conda-forge), veja setup/environment.yml
+streamlit>=1.50
+pandas
