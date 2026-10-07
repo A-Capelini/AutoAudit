@@ -1,84 +1,95 @@
-# AutoAudit — Starter (Sprint 1)
+# AutoAudit
 
-Scaffold inicial do projeto: banco de dados, ambiente Python e scripts de
-aquisição de dataset. Cobre a entrega da **Sprint 1** do cronograma
-(infraestrutura + dataset).
+**Auditoria Automatizada de Políticas de Segurança com PLN e Verificação Prática de Conformidade**
 
-## Estrutura
+Projeto da disciplina de Processamento de Linguagem Natural (PLN) — Ciência de Dados, Fatec Cotia.
+Professor: Braz Izaias da Silva Junior.
+
+Equipe: Anderson Capelini Andrade (RA 2701352423046) · Moisés Germano Leite (RA 2701352423043)
+
+## O que é
+
+O AutoAudit lê uma política de segurança da informação (PDF/DOCX), usa PLN para atribuir uma nota de
+**Saúde de Compliance (0 a 5)** e gera um plano de ação com sugestão de nova redação. Um módulo de
+**Verificação Prática** testa, em laboratório isolado, se os controles descritos na política realmente existem.
+
+Stack: Python · Streamlit · FastAPI · LangChain + LLM · MongoDB (não relacional) · FAISS (busca semântica).
+
+> **Escopo ético:** todos os testes práticos rodam apenas contra ambientes de laboratório intencionalmente
+> vulneráveis e isolados (DVWA, OWASP Juice Shop, Metasploitable). Nenhum sistema de terceiros é testado.
+
+## Estrutura do repositório
 
 ```
-autoaudit-starter/
-├── docker-compose.yml      # MongoDB + interface web (mongo-express)
-├── .env.example             # copie para .env e preencha
-├── requirements.txt          # mantido como referência (não usado no setup — veja environment.yml)
-├── environment.yml           # ambiente conda-forge (use este no setup)
+AutoAudit/
+├── .streamlit/config.toml     # tema do Streamlit (precisa ficar na raiz)
 ├── data/
-│   ├── raw/                 # arquivos baixados (não vai pro Git)
-│   └── processed/           # dados limpos/estruturados (não vai pro Git)
-└── scripts/
-    ├── download_nist_oscal.py   # NIST SP 800-53 (automático)
-    ├── download_lgpd.py         # LGPD (automático)
-    ├── download_nvd_sample.py   # amostra de CVEs (automático)
-    └── DATASETS.md              # guia manual (CIS, SANS, nota sobre ISO 27001)
+│   ├── raw/                   # arquivos baixados (não vão para o Git)
+│   └── processed/             # dados estruturados (não vão para o Git)
+├── frontend/
+│   ├── app.py                 # interface Streamlit
+│   └── mock_data.py           # relatório simulado (será trocado pela API)
+├── scripts/                   # download do dataset (NIST, LGPD, NVD) + DATASETS.md
+├── setup/environment.yml      # ambiente Conda (conda-forge) — uso local
+├── .env.example               # copie para .env
+├── docker-compose.yml         # MongoDB + mongo-express
+└── requirements.txt           # dependências mínimas — usado pelo Streamlit Cloud
 ```
 
-## Setup — Windows
+### Por que dois arquivos de dependências?
 
-1. Instale o **Docker Desktop** (usa WSL2 por baixo — o instalador configura
-   sozinho na maioria dos casos).
-2. Instale o **Miniforge** (conda-forge como canal padrão, mais leve que o
-   Anaconda completo): https://github.com/conda-forge/miniforge
-3. Abra o "Miniforge Prompt" na pasta do projeto:
-   ```powershell
-   conda env create -f environment.yml
-   conda activate autoaudit
-   copy .env.example .env
-   ```
-4. Suba o MongoDB:
-   ```powershell
-   docker compose up -d
-   ```
+| Arquivo | Para quê | Conteúdo |
+|---|---|---|
+| `setup/environment.yml` | Desenvolvimento local e replicação em outras máquinas | Ambiente completo (conda-forge) |
+| `requirements.txt` | Deploy no Streamlit Community Cloud | Só o que o frontend precisa |
 
-## Setup — Linux
+O `environment.yml` fica em `setup/` de propósito, para o Streamlit Cloud não enxergá-lo e usar o
+`requirements.txt`. Ao adicionar uma dependência que o app publicado precisa, atualize **os dois**.
 
-1. Instale Docker + Docker Compose (`sudo apt install docker.io docker-compose-plugin`
-   ou o script oficial `get-docker.sh`).
-2. Instale o Miniforge, se ainda não tiver: https://github.com/conda-forge/miniforge
-3. Na pasta do projeto:
-   ```bash
-   conda env create -f environment.yml
-   conda activate autoaudit
-   cp .env.example .env
-   ```
-4. Suba o MongoDB:
-   ```bash
-   docker compose up -d
-   ```
+## Ambiente local (conda-forge)
 
-Use um ambiente **`autoaudit`** dedicado, separado do `nlp-analyzer` que você
-já usa pros outros trabalhos de PLN — a stack aqui (LangChain, FAISS,
-MongoDB, python-nmap) é mais pesada e específica, e misturar aumenta o
-risco de quebrar algo que já está funcionando numa tarefa entregue.
+Requisito: [Miniforge](https://github.com/conda-forge/miniforge) (ou conda com o canal conda-forge) e Docker.
+Os comandos são os mesmos no Windows (Anaconda/Miniforge Prompt) e no Linux.
 
-O `environment.yml` já separa os pacotes: os que têm build binária pesada
-(`faiss-cpu` principalmente) vêm do conda-forge; os que mudam rápido demais
-pro conda-forge acompanhar (LangChain, sentence-transformers, python-nmap)
-vêm do pip, instalados dentro do próprio ambiente conda. O `torch` também
-é forçado pra build CPU-only, já que a máquina não tem GPU dedicada.
+```bash
+conda env create -f setup/environment.yml
+conda activate autoaudit
+cp .env.example .env        # Windows: copy .env.example .env
+```
 
-Em ambos os casos, o `docker-compose.yml` é o mesmo arquivo — essa é
-literalmente a vantagem de rodar o banco em container em vez de instalar o
-MongoDB nativo: quem está no Windows e quem está no Linux sobem exatamente o
-mesmo ambiente.
+Para atualizar o ambiente depois de mudanças no arquivo:
 
-## Verificar que o Mongo subiu
+```bash
+conda env update -f setup/environment.yml --prune
+```
+
+> Se algum pacote não resolver no conda-forge, mova-o para a seção `pip:` do `environment.yml`.
+
+## Rodar o frontend
+
+Sempre a partir da **raiz** do repositório (é de lá que o Streamlit lê o `.streamlit/config.toml`):
+
+```bash
+streamlit run frontend/app.py
+```
+
+Por enquanto a interface usa **dados simulados** (`frontend/mock_data.py`). O dicionário que
+`analisar_documento()` devolve é o contrato com a futura API: quando o backend existir, só essa função muda.
+
+## Banco de dados (MongoDB)
+
+Cada integrante roda a própria instância local via Docker:
+
+```bash
+docker compose up -d
+```
 
 - Interface web: http://localhost:8081 (mongo-express, sem login em dev)
-- Ou via shell: `docker exec -it autoaudit-mongo mongosh -u autoaudit -p`
+- Shell: `docker exec -it autoaudit-mongo mongosh -u autoaudit -p`
 
 ## Baixar o dataset
 
-Com o ambiente conda ativado:
+Com o ambiente `autoaudit` ativado:
 
 ```bash
 python scripts/download_nist_oscal.py
@@ -86,17 +97,35 @@ python scripts/download_lgpd.py
 python scripts/download_nvd_sample.py --keyword mongodb --results 30
 ```
 
-Os três já testados e funcionando (o NIST inclusive baixa **324 controles**
-reais em `data/raw/`). Para CIS Controls v8, templates do SANS e a nota
-sobre a ISO 27001 (que **não deve** ser baixada por questão de direitos
-autorais), veja `scripts/DATASETS.md`.
+CIS Controls v8 e templates do SANS exigem download manual; a ISO 27001 **não deve** ser baixada
+(direitos autorais). Detalhes em [`scripts/DATASETS.md`](scripts/DATASETS.md).
 
-## Próximos passos (restante da Sprint 1)
+## Deploy no Streamlit Community Cloud
 
-- [ ] Rodar os 3 scripts e conferir os arquivos em `data/raw/`
-- [ ] Baixar CIS Controls v8 e templates do SANS manualmente (`DATASETS.md`)
-- [ ] Escrever o parser que estrutura cada fonte em "documentos curtos"
-      (um por cláusula/artigo/controle) — formato comum pra todas as fontes
-- [ ] Gerar os embeddings (`paraphrase-multilingual-mpnet-base-v2`) e montar
-      o índice FAISS inicial
-- [ ] Definir as coleções do MongoDB (ex.: `normas`, `auditorias`, `relatorios`)
+1. Repositório: `A-Capelini/AutoAudit`, branch `main`.
+2. **Main file path:** `frontend/app.py`
+3. Em *Advanced settings*, escolha Python 3.11.
+4. Segredos (URL da API, chaves) vão em *Secrets* no painel — nunca no Git (`.streamlit/secrets.toml` está no `.gitignore`).
+
+## Cronograma (4 sprints)
+
+| Sprint | Entrega | Status |
+|---|---|---|
+| 1 — Frontend | Interface funcionando (prazo: 12/10) | Em andamento — interface com dados simulados pronta |
+| 2 — Banco de dados | Modelagem e persistência no MongoDB | Pendente |
+| 3 — Backend | Lógica, FastAPI e integração do motor de PLN | Pendente |
+| 4 — Apresentação | Preparação e entrega final (24/11) | Pendente |
+
+Pendências da Sprint 1:
+
+- [x] Interface Streamlit (nova auditoria, resultado, histórico) com dados simulados
+- [ ] Revisar textos e visual
+- [ ] Testar com um template de política do SANS
+- [ ] Publicar no Streamlit Cloud
+
+Trabalho de dados em paralelo (alimenta as Sprints 2 e 3):
+
+- [ ] Baixar CIS Controls v8 e templates do SANS
+- [ ] Parser que estrutura cada fonte em documentos curtos (um por cláusula/artigo/controle)
+- [ ] Embeddings (`paraphrase-multilingual-mpnet-base-v2`) e índice FAISS inicial
+- [ ] Coleções do MongoDB (ex.: `normas`, `auditorias`, `relatorios`)
