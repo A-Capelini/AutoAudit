@@ -60,7 +60,7 @@ def pagina_nova():
             rel = analisar_documento(arquivo.name, arquivo.getvalue(), com_verif)
         st.session_state.relatorio = rel
         st.session_state.historico.insert(0, rel)
-        st.session_state.pagina = "Resultado"
+        st.session_state.ir_para = "Resultado"
         st.rerun()
 
 
@@ -140,24 +140,38 @@ def pagina_historico():
     if not hist:
         st.info("Nenhuma auditoria nesta sessão. Quando o banco estiver conectado, o histórico ficará salvo no MongoDB.")
         return
+    def fmt(x):
+        return "—" if x is None else f"{x:.1f}"
+
     df = pd.DataFrame(
-        [{"Data": r["data"], "Arquivo": r["arquivo"], "Documental": r["nota_documental"],
-          "Prática": r["nota_pratica"], "Saúde de Compliance": r["saude_compliance"]} for r in hist]
+        [{"Data": r["data"], "Arquivo": r["arquivo"], "Documental": fmt(r["nota_documental"]),
+          "Prática": fmt(r["nota_pratica"]), "Saúde de Compliance": fmt(r["saude_compliance"])} for r in hist]
     )
     st.dataframe(df, width="stretch", hide_index=True)
     if len(hist) > 1:
         st.markdown("**Evolução da Saúde de Compliance**")
-        st.line_chart(df.iloc[::-1].set_index("Data")["Saúde de Compliance"])
+        evolucao = pd.DataFrame(
+            {"Saúde de Compliance": [r["saude_compliance"] for r in reversed(hist)]},
+            index=[r["data"] for r in reversed(hist)],
+        )
+        st.line_chart(evolucao)
     escolha = st.selectbox("Abrir auditoria", range(len(hist)),
                            format_func=lambda i: f'{hist[i]["data"]} — {hist[i]["arquivo"]}')
     if st.button("Abrir resultado"):
         st.session_state.relatorio = hist[escolha]
-        st.session_state.pagina = "Resultado"
+        st.session_state.ir_para = "Resultado"
         st.rerun()
 
 
 # ---------------------------------------------------------------- navegação
 PAGINAS = {"Nova auditoria": pagina_nova, "Resultado": pagina_resultado, "Histórico": pagina_historico}
+
+# Troca de página pedida por um botão: precisa ser aplicada antes do st.radio ser criado,
+# porque o Streamlit não permite alterar o valor de um widget depois de ele ser desenhado.
+if "ir_para" in st.session_state:
+    st.session_state.pagina = st.session_state.pop("ir_para")
+if "pagina" not in st.session_state:
+    st.session_state.pagina = "Nova auditoria"
 
 with st.sidebar:
     st.header("AutoAudit")
