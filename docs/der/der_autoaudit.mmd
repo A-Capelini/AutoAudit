@@ -13,10 +13,10 @@ erDiagram
         ObjectId _id PK
         string arquivo
         string sha256
-        string formato
+        string formato "pdf, docx, nulo permitido"
         int tamanho_bytes
         bool com_verificacao
-        string status "pendente, concluida, erro"
+        string status "pendente, processando, concluida, erro"
         string modelo_llm "nulo permitido"
         string erro "nulo permitido"
         date criada_em
@@ -31,7 +31,7 @@ erDiagram
         double nota_documental "0 a 5"
         double nota_pratica "0 a 5, nulo permitido"
         double saude_compliance "0 a 5"
-        string feedback_analista "nulo permitido"
+        object feedback_analista "avaliacao e comentario, nulo permitido"
     }
 
     LACUNAS {
@@ -51,7 +51,7 @@ erDiagram
         string alvo
         string esperado
         string observado
-        string status
+        string status "passou, falhou"
     }
 
     NORMAS {
@@ -60,9 +60,9 @@ erDiagram
         string identificador "AK1"
         string titulo
         string texto
-        string idioma
+        string idioma "pt, en"
         string familia
-        string grupo_implementacao
+        string grupo_implementacao "IG1, IG2, IG3 (so CIS)"
         string versao_fonte
         int faiss_id
         int_array faiss_ids

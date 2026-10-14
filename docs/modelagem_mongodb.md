@@ -16,13 +16,13 @@ normas  <-- normas_ref (opcional) --  relatorios  -- auditoria_id -->  auditoria
 | Coleção | Papel | Volume esperado |
 |---|---|---|
 | `normas` | Uma unidade curta por controle/artigo (NIST, CIS, LGPD, ISO Anexo A, SANS). Alimenta o RAG. | Milhares |
-| `auditorias` | A execução: qual arquivo, quando, em que estado (`pendente` → `concluida`/`erro`). | Dezenas/centenas |
+| `auditorias` | A execução: qual arquivo, quando, em que estado (`pendente` → `processando` → `concluida` ou `erro`). | Dezenas/centenas |
 | `relatorios` | O resultado entregue ao analista: notas, lacunas, verificações. No máximo um por auditoria (0..1). | Menor ou igual a `auditorias` |
 
 ## Decisões
 
 1. **Contrato do frontend é a fonte da verdade.** Ele já está no ar; o banco se adapta a ele.
-2. **Auditoria ≠ relatório.** A auditoria tem ciclo de vida (processando, erro) mesmo sem resultado; o relatório só existe quando há resultado. Por isso a relação é **auditoria 1 : 0..1 relatório** (não 1:1): uma auditoria `pendente` ou com `erro` não tem relatório. O histórico lista `relatorios`.
+2. **Auditoria ≠ relatório.** A auditoria tem ciclo de vida (processando, erro) mesmo sem resultado; o relatório só existe quando há resultado. Por isso a relação é **auditoria 1 : 0..1 relatório** (não 1:1): uma auditoria `pendente`, `processando` ou com `erro` não tem relatório. O histórico lista `relatorios`.
 3. **Lacunas e verificações embutidas no relatório.** São sempre lidas juntas e o tamanho fica muito abaixo de 16 MB por documento.
 4. **Embeddings ficam no FAISS.** O Mongo guarda só `faiss_ids`, para ir do vetor ao texto da norma.
    O modelo lê no máximo 256 tokens por vez e ~22% do NIST e ~34% da LGPD passam disso (ex.: Art. 7º tem
