@@ -1,4 +1,6 @@
-"""AutoAudit — frontend (Streamlit). Rodar com: streamlit run app.py"""
+"""AutoAudit — frontend (Streamlit). Rodar, a partir da raiz do repositório: streamlit run frontend/app.py"""
+import html
+
 import pandas as pd
 import streamlit as st
 
@@ -38,7 +40,7 @@ def faixa(nota: float) -> str:
 
 
 def selo(sev: str) -> str:
-    return f'<span class="selo" style="background:{CORES_SEV[sev]}">{sev}</span>'
+    return f'<span class="selo" style="background:{CORES_SEV.get(sev, "#475467")}">{html.escape(sev)}</span>'
 
 
 # ---------------------------------------------------------------- páginas
@@ -106,7 +108,7 @@ def pagina_resultado():
             with st.expander(f'{l["clausula"]}  ·  severidade {l["severidade"]}'):
                 st.markdown(selo(l["severidade"]), unsafe_allow_html=True)
                 st.markdown("**Trecho original**")
-                st.markdown(f'<div class="trecho">{l["trecho"]}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="trecho">{html.escape(l["trecho"])}</div>', unsafe_allow_html=True)
                 st.markdown(f'**Problema:** {l["problema"]}')
                 st.markdown(f'**Referência normativa:** {l["referencia"]}')
                 if l["mitre"]:

@@ -7,7 +7,11 @@ FastAPI: quando o backend ficar pronto, só esta função muda (troca por um
 requests.post para /auditorias) e o resto da interface continua igual.
 """
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import hashlib
+
+# O Streamlit Cloud roda em UTC; sem fuso explícito a data apareceria 3 h adiantada.
+FUSO = ZoneInfo("America/Sao_Paulo")
 
 SEVERIDADES = ["alta", "média", "baixa"]
 
@@ -83,7 +87,7 @@ def analisar_documento(nome_arquivo: str, conteudo: bytes, com_verificacao: bool
     return {
         "id": h % 10**6,
         "arquivo": nome_arquivo,
-        "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "data": datetime.now(FUSO).strftime("%d/%m/%Y %H:%M"),
         "nota_documental": documental,
         "nota_pratica": pratica,
         "saude_compliance": _nota_geral(documental, pratica),

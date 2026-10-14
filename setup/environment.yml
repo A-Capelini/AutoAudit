@@ -10,6 +10,7 @@ dependencies:
   # Frontend (Sprint 1)
   - streamlit>=1.50
   - pandas
+  - tzdata  # fuso America/Sao_Paulo no frontend (necessário no Windows)
   # Ingestão e utilitários
   - requests
   - python-dotenv
