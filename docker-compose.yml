@@ -4,22 +4,32 @@ services:
     container_name: autoaudit-mongo
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      # 127.0.0.1: só esta máquina acessa. Sem isso, o Docker publica na rede inteira (Wi-Fi/LAN).
+      - "127.0.0.1:27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-autoaudit}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASS:-autoaudit_dev_pw}
       MONGO_INITDB_DATABASE: ${MONGO_DB_NAME:-autoaudit}
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      # "ping" não exige autenticação; serve só para saber se o Mongo já aceita conexões.
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
   mongo-express:
     image: mongo-express:latest
     container_name: autoaudit-mongo-ui
     restart: unless-stopped
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy  # só sobe a interface depois que o Mongo estiver pronto
     ports:
-      - "8081:8081"
+      # mongo-express está sem login (BASICAUTH false): NUNCA exponha na rede, só localhost.
+      - "127.0.0.1:8081:8081"
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_ROOT_USER:-autoaudit}
       ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_ROOT_PASS:-autoaudit_dev_pw}

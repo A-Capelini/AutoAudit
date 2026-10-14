@@ -18,19 +18,23 @@ dependencies:
   - lxml
   - openpyxl
   - python-docx
-  # Banco de dados (Sprint 2)
-  - pymongo
+  # Banco de dados (Sprint 2) — 4.6+ é compatível com o MongoDB 7 do docker-compose
+  - pymongo>=4.6
   # Backend (Sprint 3)
   - fastapi
   - uvicorn
+  - python-multipart  # exigido pelo FastAPI para receber upload de arquivo (PDF/DOCX)
   # Busca semântica / PLN (Sprints 2-3)
   - faiss-cpu
   - sentence-transformers
   - langchain
   # Verificação prática (Sprint 4)
-  - python-nmap
+  # ATENÇÃO: python-nmap é só um "wrapper". O programa `nmap` precisa estar instalado no sistema
+  # (Linux: sudo apt install nmap | Windows: instalador em nmap.org) ou no container do laboratório.
+  # O cliente da API do OWASP ZAP (pip: python-owasp-zap-v2.4) entra na Sprint 4, se for usado.
   - pip
   # Pacotes sem build confiável no conda-forge: confira com `conda search -c conda-forge <pacote>`
   # e, se faltar, mova-o para cá.
   - pip:
       - langchain-community
+      - python-nmap  # não existe no conda-forge (só no PyPI)
