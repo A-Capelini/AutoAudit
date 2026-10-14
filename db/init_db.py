@@ -39,7 +39,10 @@ NORMAS_SCHEMA = {
         "familia": {"bsonType": ["string", "null"]},
         "grupo_implementacao": {"enum": ["IG1", "IG2", "IG3", None]},  # só CIS
         "versao_fonte": {"bsonType": ["string", "null"]},
+        # Normas longas viram vários trechos no FAISS (um vetor por trecho):
+        # faiss_ids = todos os vetores da norma; faiss_id = o primeiro (atalho).
         "faiss_id": {"bsonType": ["int", "long", "null"]},
+        "faiss_ids": {"bsonType": "array", "items": {"bsonType": ["int", "long"]}},
         "embedding_modelo": {"bsonType": ["string", "null"]},
         "mapeamentos": {"bsonType": "array", "items": {"bsonType": "string"}},
         "criado_em": {"bsonType": "date"},
@@ -137,6 +140,7 @@ INDICES = {
         ([("fonte", ASCENDING), ("identificador", ASCENDING)],
          {"unique": True, "name": "uq_fonte_identificador"}),
         ([("faiss_id", ASCENDING)], {"name": "ix_faiss_id", "sparse": True}),
+        ([("faiss_ids", ASCENDING)], {"name": "ix_faiss_ids", "sparse": True}),
     ],
     "auditorias": [
         ([("criada_em", DESCENDING)], {"name": "ix_criada_em"}),
