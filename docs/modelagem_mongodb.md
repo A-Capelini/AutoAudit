@@ -17,12 +17,12 @@ normas  <-- normas_ref (opcional) --  relatorios  -- auditoria_id -->  auditoria
 |---|---|---|
 | `normas` | Uma unidade curta por controle/artigo (NIST, CIS, LGPD, ISO Anexo A, SANS). Alimenta o RAG. | Milhares |
 | `auditorias` | A execução: qual arquivo, quando, em que estado (`pendente` → `concluida`/`erro`). | Dezenas/centenas |
-| `relatorios` | O resultado entregue ao analista: notas, lacunas, verificações. 1:1 com a auditoria. | Igual a `auditorias` |
+| `relatorios` | O resultado entregue ao analista: notas, lacunas, verificações. No máximo um por auditoria (0..1). | Menor ou igual a `auditorias` |
 
 ## Decisões
 
 1. **Contrato do frontend é a fonte da verdade.** Ele já está no ar; o banco se adapta a ele.
-2. **Auditoria ≠ relatório.** A auditoria tem ciclo de vida (processando, erro) mesmo sem resultado; o relatório só existe quando há resultado. O histórico lista `relatorios`.
+2. **Auditoria ≠ relatório.** A auditoria tem ciclo de vida (processando, erro) mesmo sem resultado; o relatório só existe quando há resultado. Por isso a relação é **auditoria 1 : 0..1 relatório** (não 1:1): uma auditoria `pendente` ou com `erro` não tem relatório. O histórico lista `relatorios`.
 3. **Lacunas e verificações embutidas no relatório.** São sempre lidas juntas e o tamanho fica muito abaixo de 16 MB por documento.
 4. **Embeddings ficam no FAISS.** O Mongo guarda só `faiss_ids`, para ir do vetor ao texto da norma.
    O modelo lê no máximo 256 tokens por vez e ~22% do NIST e ~34% da LGPD passam disso (ex.: Art. 7º tem
@@ -33,6 +33,7 @@ normas  <-- normas_ref (opcional) --  relatorios  -- auditoria_id -->  auditoria
 5. **`nota_pratica` e `verificacoes` aceitam `null`** — é o estado "Verificação Prática não executada" (cenário FCS) que o frontend já trata.
 6. **Validação `moderate`:** valida inserções/atualizações, mas não quebra documentos antigos se o schema evoluir.
 7. **Severidade com acento** (`alta`, `média`, `baixa`), igual ao `CORES_SEV` do `app.py`; sem acento o Mongo rejeita.
+8. **Convenção dos campos de data.** Em `auditorias` o gênero acompanha a entidade, como no valor `status = "concluida"`: `criada_em` e `concluida_em`. Em `normas` e `relatorios` vale `criado_em` (o de `relatorios` também é exigência do contrato). A diferença é deliberada: renomear `auditorias` para `criado_em` deixaria `concluido_em` em desacordo com o valor `"concluida"`.
 
 ## Coleção `relatorios` (= contrato)
 
@@ -74,7 +75,7 @@ Diferenças deliberadas em relação ao dict do mock (o backend converte na bord
 | `data` ("dd/mm/YYYY HH:MM") | `criado_em` (date) | permite ordenar e filtrar; a API formata para o frontend |
 | — | `normas_ref`, `feedback_analista` | extras; o frontend ignora |
 
-Índices: `auditoria_id` único; `criado_em` decrescente (histórico).
+Índices: `auditoria_id` único (garante no máximo um relatório por auditoria); `criado_em` decrescente (histórico).
 
 ## Coleção `auditorias`
 
