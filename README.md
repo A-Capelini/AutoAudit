@@ -126,6 +126,6 @@ Pendências da Sprint 1:
 Trabalho de dados em paralelo (alimenta as Sprints 2 e 3):
 
 - [ ] Baixar CIS Controls v8 e templates do SANS
-- [ ] Parser que estrutura cada fonte em documentos curtos (um por cláusula/artigo/controle)
-- [ ] Embeddings (`paraphrase-multilingual-mpnet-base-v2`) e índice FAISS inicial
-- [ ] Coleções do MongoDB (ex.: `normas`, `auditorias`, `relatorios`)
+- [ ] Parser que estrutura cada fonte em documentos curtos (um por cláusula/artigo/controle) — NIST (1.014 controles ativos) e LGPD (73 artigos vigentes) prontos; faltam CIS e SANS
+- [x] Embeddings (`paraphrase-multilingual-mpnet-base-v2`) e índice FAISS inicial (`db/build_faiss.py`; normas longas divididas em trechos)
+- [x] Coleções do MongoDB (`normas`, `auditorias`, `relatorios`) — `db/init_db.py`, `db/seed_normas.py`, `db/testar_contrato.py`

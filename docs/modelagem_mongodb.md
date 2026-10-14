@@ -24,7 +24,12 @@ normas  <-- normas_ref (opcional) --  relatorios  -- auditoria_id -->  auditoria
 1. **Contrato do frontend é a fonte da verdade.** Ele já está no ar; o banco se adapta a ele.
 2. **Auditoria ≠ relatório.** A auditoria tem ciclo de vida (processando, erro) mesmo sem resultado; o relatório só existe quando há resultado. O histórico lista `relatorios`.
 3. **Lacunas e verificações embutidas no relatório.** São sempre lidas juntas e o tamanho fica muito abaixo de 16 MB por documento.
-4. **Embeddings ficam no FAISS.** O Mongo guarda só `faiss_id`, para ir do vetor ao texto da norma.
+4. **Embeddings ficam no FAISS.** O Mongo guarda só `faiss_ids`, para ir do vetor ao texto da norma.
+   O modelo lê no máximo 256 tokens por vez e ~22% do NIST e ~34% da LGPD passam disso (ex.: Art. 7º tem
+   684 tokens). Essas normas são divididas em **trechos** (por inciso, parágrafo ou frase, ~150 tokens cada, repetindo
+   o título e a primeira linha da norma como contexto), um vetor por trecho. Uma norma tem, portanto, vários
+   `faiss_ids`; `faiss_id` é só o primeiro. Na consulta, trechos da mesma norma viram um resultado só.
+   (Sem a divisão, o Art. 7º não aparecia para a pergunta sobre hipóteses legais de tratamento.)
 5. **`nota_pratica` e `verificacoes` aceitam `null`** — é o estado "Verificação Prática não executada" (cenário FCS) que o frontend já trata.
 6. **Validação `moderate`:** valida inserções/atualizações, mas não quebra documentos antigos se o schema evoluir.
 7. **Severidade com acento** (`alta`, `média`, `baixa`), igual ao `CORES_SEV` do `app.py`; sem acento o Mongo rejeita.
@@ -103,13 +108,18 @@ Diferenças deliberadas em relação ao dict do mock (o backend converte na bord
   "grupo_implementacao": null,
   "versao_fonte": "Rev. 5",
   "faiss_id": 17,
+  "faiss_ids": [17, 18],
   "embedding_modelo": "paraphrase-multilingual-mpnet-base-v2",
   "mapeamentos": ["CIS_V8:5.1"],
   "criado_em": "<date>"
 }
 ```
 
-Índices: `(fonte, identificador)` único; `faiss_id` esparso.
+Índices: `(fonte, identificador)` único; `faiss_id` e `faiss_ids` esparsos.
+
+Carga atual: NIST SP 800-53 Rev. 5 com 1.014 unidades (1.196 itens entre controles e melhorias, menos 182 retirados);
+LGPD com 73 artigos vigentes (só a redação mais recente de cada artigo; vetados e revogados ficam de fora).
+Índice FAISS: 1.705 vetores de 768 dimensões para essas 1.087 normas.
 
 ## Como foi verificado
 
