@@ -148,7 +148,7 @@ CIS Controls v8 e templates do SANS exigem download manual; a ISO 27001 **não d
 
 ## Deploy no Streamlit Community Cloud
 
-1. Repositório: `A-Capelini/AutoAudit`, branch `main`.
+1. Repositório: `A-Capelini/AutoAudit`, branch `main` (app publicado em https://autoaudit.streamlit.app).
 2. **Main file path:** `frontend/app.py`
 3. Em *Advanced settings*, escolha Python 3.11.
 4. Segredos (URL da API, chaves) vão em *Secrets* no painel — nunca no Git (`.streamlit/secrets.toml` está no `.gitignore`).
@@ -172,11 +172,17 @@ Sprint 2 (banco de dados):
 - [x] Roteiros de replicação e de demonstração (`docs/`)
 - [ ] Apresentar o banco em 20/10
 
-Pendências do frontend (Sprint 1):
+Frontend (Sprint 1):
 
-- [ ] Revisar textos e visual
-- [ ] Testar com um template de política do SANS
-- [ ] Publicar no Streamlit Cloud
+- [x] Interface Streamlit (nova auditoria, resultado, histórico) com dados simulados
+- [x] Publicado no Streamlit Community Cloud (https://autoaudit.streamlit.app)
+- [x] Revisão do código: fuso horário de São Paulo na data e HTML escapado nos trechos da política
+- [ ] Revisar textos e visual (ajustes finos, sem prazo)
+
+Pendências para a Sprint 3 (backend):
+
+- [ ] Testar o motor de PLN com templates do SANS (o frontend atual não lê o conteúdo do arquivo)
+- [ ] Gerar lacunas a partir do documento enviado (hoje o mock devolve sempre as mesmas) e normalizar a severidade (`alta`, `média`, `baixa`) antes de devolver o relatório
 
 Trabalho de dados em paralelo (alimenta a Sprint 3):
 
