@@ -1,0 +1,72 @@
+---
+title: AutoAudit — DER conceitual (MongoDB, banco autoaudit)
+---
+erDiagram
+    direction LR
+    AUDITORIAS ||--o| RELATORIOS : "gera"
+    RELATORIOS ||--o{ LACUNAS : "contém (embutida)"
+    RELATORIOS ||--o{ VERIFICACOES : "contém (embutida)"
+    LACUNAS }o--o{ NORMAS : "referencia (normas_ref)"
+    NORMAS }o--o{ NORMAS : "mapeia (mapeamentos)"
+
+    AUDITORIAS {
+        ObjectId _id PK
+        string arquivo
+        string sha256
+        string formato
+        int tamanho_bytes
+        bool com_verificacao
+        string status "pendente, concluida, erro"
+        string modelo_llm "nulo permitido"
+        string erro "nulo permitido"
+        date criada_em
+        date concluida_em
+    }
+
+    RELATORIOS {
+        ObjectId _id PK
+        ObjectId auditoria_id FK "unico"
+        string arquivo
+        date criado_em
+        double nota_documental "0 a 5"
+        double nota_pratica "0 a 5, nulo permitido"
+        double saude_compliance "0 a 5"
+        string feedback_analista "nulo permitido"
+    }
+
+    LACUNAS {
+        string clausula
+        string trecho
+        string severidade "alta, média, baixa"
+        string referencia
+        string problema
+        string sugestao
+        string mitre
+        ObjectId_array normas_ref FK
+    }
+
+    VERIFICACOES {
+        string controle
+        string acao
+        string alvo
+        string esperado
+        string observado
+        string status
+    }
+
+    NORMAS {
+        ObjectId _id PK
+        string fonte "AK1"
+        string identificador "AK1"
+        string titulo
+        string texto
+        string idioma
+        string familia
+        string grupo_implementacao
+        string versao_fonte
+        int faiss_id
+        int_array faiss_ids
+        string embedding_modelo
+        string_array mapeamentos
+        date criado_em
+    }
