@@ -25,7 +25,23 @@ AutoAudit/
 ├── .streamlit/config.toml     # tema do Streamlit (precisa ficar na raiz)
 ├── data/
 │   ├── raw/                   # arquivos baixados (não vão para o Git)
-│   └── processed/             # dados estruturados (não vão para o Git)
+│   ├── processed/             # índice FAISS e metadados gerados (não vão para o Git)
+│   └── samples/               # política fictícia (Nimbus Logística) e gabarito para testes
+├── db/
+│   ├── init_db.py             # cria coleções, validadores $jsonSchema e índices (idempotente)
+│   ├── seed_normas.py         # carrega NIST 800-53 e LGPD na coleção `normas`
+│   ├── seed_exemplo.py        # 6 auditorias e 3 relatórios fictícios de exemplo
+│   ├── repositorio.py         # CRUD das três coleções, com as regras de integridade
+│   ├── demo_crud.py           # demonstração ao vivo do CRUD
+│   ├── build_faiss.py         # embeddings e índice FAISS
+│   ├── testar_contrato.py     # teste de ida e volta entre o frontend e o banco
+│   └── dump/                  # mongodump do banco (sem usuários nem senhas)
+├── docs/
+│   ├── der/                   # DER conceitual (Mermaid, PNG e PDF)
+│   ├── modelagem_mongodb.md   # decisões de modelagem
+│   ├── dicionario_dados.md    # campos, tipos, domínios, índices e relacionamentos
+│   ├── roteiro_replicacao.md  # como recriar o banco em outra máquina
+│   └── roteiro_demonstracao.md# roteiro da apresentação do banco
 ├── frontend/
 │   ├── app.py                 # interface Streamlit
 │   └── mock_data.py           # relatório simulado (será trocado pela API)
@@ -73,19 +89,49 @@ Sempre a partir da **raiz** do repositório (é de lá que o Streamlit lê o `.s
 streamlit run frontend/app.py
 ```
 
-Por enquanto a interface usa **dados simulados** (`frontend/mock_data.py`). O dicionário que
+A interface usa **dados simulados** (`frontend/mock_data.py`); o backend (Sprint 3) ainda não existe. O dicionário que
 `analisar_documento()` devolve é o contrato com a futura API: quando o backend existir, só essa função muda.
+O banco já foi desenhado para guardar esse dicionário sem tradução (veja `db/testar_contrato.py`).
 
 ## Banco de dados (MongoDB)
 
-Cada integrante roda a própria instância local via Docker:
+Cada integrante roda a **própria instância** local via Docker (os dados não são compartilhados).
+O banco `autoaudit` tem três coleções: `normas` (1.087 documentos: NIST SP 800-53 Rev.5 com 1.014 controles e
+LGPD com 73 artigos), `auditorias` e `relatorios`. As lacunas e as verificações práticas ficam embutidas no relatório.
+
+Ambiente novo? Siga o [`docs/roteiro_replicacao.md`](docs/roteiro_replicacao.md): ele cria o `.env`, sobe o
+Docker, restaura o dump de `db/dump/` e confere tudo. Resumo dos comandos do dia a dia:
 
 ```bash
-docker compose up -d
+docker compose up -d                 # sobe MongoDB e mongo-express
+python db/init_db.py                 # cria/atualiza coleções, validadores e índices (idempotente)
+python db/demo_crud.py               # demonstração ao vivo do CRUD (Enter avança cada passo)
 ```
 
-- Interface web: http://localhost:8081 (mongo-express, sem login em dev)
+- Interface web: http://localhost:8081 (mongo-express, sem login em dev; acessível só nesta máquina)
 - Shell: `docker exec -it autoaudit-mongo mongosh -u autoaudit -p`
+- Para parar: `docker compose stop`. **Nunca** use `docker compose down -v`: a opção `-v` apaga os dados.
+
+Documentação do banco:
+
+| Documento | Conteúdo |
+|---|---|
+| [`docs/der/der_autoaudit.png`](docs/der/der_autoaudit.png) | DER conceitual (notação pé de galinha) |
+| [`docs/modelagem_mongodb.md`](docs/modelagem_mongodb.md) | Decisões de modelagem (embutir × referenciar, integridade sem FK) |
+| [`docs/dicionario_dados.md`](docs/dicionario_dados.md) | Campos, tipos, domínios, índices e relacionamentos |
+| [`docs/roteiro_demonstracao.md`](docs/roteiro_demonstracao.md) | Roteiro da apresentação do banco |
+
+### Índice FAISS (busca semântica)
+
+O índice **não** vai para o Git. Para gerá-lo (com o Mongo no ar e as normas carregadas):
+
+```bash
+python db/build_faiss.py
+python db/build_faiss.py --consulta "política de senhas e controle de acesso"
+```
+
+São 1.705 vetores de 768 dimensões (`paraphrase-multilingual-mpnet-base-v2`). Na primeira execução o modelo
+(cerca de 1,1 GB) é baixado do Hugging Face.
 
 ## Baixar o dataset
 
@@ -111,21 +157,30 @@ CIS Controls v8 e templates do SANS exigem download manual; a ISO 27001 **não d
 
 | Sprint | Entrega | Status |
 |---|---|---|
-| 1 — Frontend | Interface funcionando (prazo: 12/10) | Em andamento — interface com dados simulados pronta |
-| 2 — Banco de dados | Modelagem e persistência no MongoDB | Pendente |
+| 1 — Frontend | Interface funcionando | Entregue em 13/10 (interface com dados simulados) |
+| 2 — Banco de dados | DER, base com as coleções criadas e CRUD funcionando | Pronto; **entrega e demonstração em 20/10** |
 | 3 — Backend | Lógica, FastAPI e integração do motor de PLN | Pendente |
 | 4 — Apresentação | Preparação e entrega final (24/11) | Pendente |
 
-Pendências da Sprint 1:
+Sprint 2 (banco de dados):
 
-- [x] Interface Streamlit (nova auditoria, resultado, histórico) com dados simulados
+- [x] Modelagem das coleções `normas`, `auditorias` e `relatorios` (`docs/modelagem_mongodb.md`)
+- [x] DER conceitual (`docs/der/`) e dicionário de dados (`docs/dicionario_dados.md`)
+- [x] Coleções com validação de schema e índices (`db/init_db.py`)
+- [x] CRUD das três coleções (`db/repositorio.py`) e demonstração (`db/demo_crud.py`)
+- [x] Dados: 1.087 normas e 6 auditorias/3 relatórios de exemplo; dump para replicação (`db/dump/`)
+- [x] Roteiros de replicação e de demonstração (`docs/`)
+- [ ] Apresentar o banco em 20/10
+
+Pendências do frontend (Sprint 1):
+
 - [ ] Revisar textos e visual
 - [ ] Testar com um template de política do SANS
 - [ ] Publicar no Streamlit Cloud
 
-Trabalho de dados em paralelo (alimenta as Sprints 2 e 3):
+Trabalho de dados em paralelo (alimenta a Sprint 3):
 
-- [ ] Baixar CIS Controls v8 e templates do SANS
-- [ ] Parser que estrutura cada fonte em documentos curtos (um por cláusula/artigo/controle) — NIST (1.014 controles ativos) e LGPD (73 artigos vigentes) prontos; faltam CIS e SANS
-- [x] Embeddings (`paraphrase-multilingual-mpnet-base-v2`) e índice FAISS inicial (`db/build_faiss.py`; normas longas divididas em trechos)
-- [x] Coleções do MongoDB (`normas`, `auditorias`, `relatorios`) — `db/init_db.py`, `db/seed_normas.py`, `db/testar_contrato.py`
+- [ ] Baixar CIS Controls v8 e templates do SANS (hoje os `mapeamentos` das normas citam o CIS, que ainda não está carregado)
+- [x] Parser que estrutura cada fonte em documentos curtos: NIST (1.014 controles ativos) e LGPD (73 artigos vigentes) prontos; faltam CIS e SANS
+- [x] Embeddings (`paraphrase-multilingual-mpnet-base-v2`) e índice FAISS (`db/build_faiss.py`; normas longas divididas em trechos)
+- [x] Coleções do MongoDB (`normas`, `auditorias`, `relatorios`)
