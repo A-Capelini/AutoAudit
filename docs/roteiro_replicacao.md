@@ -145,7 +145,18 @@ O resultado tem as mesmas normas, mas os `_id` (ObjectId) serão diferentes dos 
 | `Authentication failed` | A senha do `.env` é diferente da usada quando o volume foi criado, ou a senha em `MONGO_URI` não é igual à de `MONGO_ROOT_PASS`. | Deixe as duas senhas iguais e use a senha da primeira subida. Evite símbolos como `@`, `:` e `/` na senha (quebram a URI). |
 | `docker compose ps` mostra `starting` | O MongoDB ainda está iniciando. | Espere e repita. |
 | `mongorestore` com erros `E11000 duplicate key` | O dump já tinha sido restaurado antes. | Nada a fazer: os dados já estão lá. Confira com o passo 7. |
-| `MONGO_URI não definida` | O `.env` não existe ou está vazio. | Refaça o passo 3 na pasta do projeto. |
+| `MONGO_URI não definida` | O `.env` não existe, está vazio ou ficou com outro nome (por exemplo, `env` sem o ponto, comum ao copiar arquivos pelo explorador de arquivos). | Confira com `ls -la .env` na pasta do projeto; se o nome estiver errado, use `mv env .env`. |
+| `Authentication failed` depois de ter subido o Docker **sem** o `.env` certo | O volume foi criado com a senha padrão do `docker-compose.yml` (`autoaudit_dev_pw`). | Sem apagar o volume: troque a senha dentro do banco pela do `.env` com o comando abaixo e rode `docker compose up -d` de novo para recriar os containers. |
+
+Comando para trocar a senha do usuário do MongoDB pela do `.env` (a senha não aparece na tela):
+
+```bash
+NOVA=$(grep '^MONGO_ROOT_PASS=' .env | cut -d= -f2-)
+docker compose exec -T -e NOVA="$NOVA" mongodb sh -c 'mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin admin --eval "db.changeUserPassword(\"$MONGO_INITDB_ROOT_USERNAME\", process.env.NOVA)"'
+docker compose up -d
+```
+
+O resultado do primeiro comando deve ser `{ ok: 1 }`. Os dados do volume não são afetados.
 
 ## Lembretes do projeto
 
