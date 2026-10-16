@@ -7,12 +7,13 @@ Para o Moisés (e para qualquer integrante) recriar o banco na própria máquina
 e 3 relatórios de exemplo, schema validado e índices criados, e o `python db/demo_crud.py`
 rodando com sucesso.
 
-Os comandos são para bash (Linux, macOS ou WSL2 no Windows). Tempo estimado: 20 a 30 minutos,
+Os comandos são para bash (Linux, macOS ou WSL2 no Windows; no Windows, siga o roteiro específico indicado nos pré-requisitos). Tempo estimado: 20 a 30 minutos,
 sem contar o download do Docker e do conda.
 
 ## Pré-requisitos
 
 - Git.
+- Windows? Use o [`roteiro_replicacao_windows.md`](roteiro_replicacao_windows.md), que começa pela instalação do WSL2.
 - Docker com Compose v2 (confira com `docker compose version`).
 - conda (Miniforge ou Miniconda) usando o canal **conda-forge**.
 - Acesso ao repositório `A-Capelini/AutoAudit` (se for privado, o Anderson precisa convidar você

@@ -40,7 +40,8 @@ AutoAudit/
 │   ├── der/                   # DER conceitual (Mermaid, PNG e PDF)
 │   ├── modelagem_mongodb.md   # decisões de modelagem
 │   ├── dicionario_dados.md    # campos, tipos, domínios, índices e relacionamentos
-│   ├── roteiro_replicacao.md  # como recriar o banco em outra máquina
+│   ├── roteiro_replicacao.md  # como recriar o banco em outra máquina (Linux)
+│   ├── roteiro_replicacao_windows.md # idem, para Windows 10/11 (começa pelo WSL2)
 │   └── roteiro_demonstracao.md# roteiro da apresentação do banco
 ├── frontend/
 │   ├── app.py                 # interface Streamlit
@@ -99,7 +100,8 @@ Cada integrante roda a **própria instância** local via Docker (os dados não s
 O banco `autoaudit` tem três coleções: `normas` (1.087 documentos: NIST SP 800-53 Rev.5 com 1.014 controles e
 LGPD com 73 artigos), `auditorias` e `relatorios`. As lacunas e as verificações práticas ficam embutidas no relatório.
 
-Ambiente novo? Siga o [`docs/roteiro_replicacao.md`](docs/roteiro_replicacao.md): ele cria o `.env`, sobe o
+Ambiente novo? Siga o [`docs/roteiro_replicacao.md`](docs/roteiro_replicacao.md) (Linux) ou o
+[`docs/roteiro_replicacao_windows.md`](docs/roteiro_replicacao_windows.md) (Windows 10/11, com WSL2): ele cria o `.env`, sobe o
 Docker, restaura o dump de `db/dump/` e confere tudo. Resumo dos comandos do dia a dia:
 
 ```bash
