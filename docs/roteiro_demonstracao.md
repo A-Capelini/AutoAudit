@@ -51,7 +51,7 @@ Mostre `docs/der/der_autoaudit.png`:
   relatório); relatório 1 : N lacunas; lacuna N : M normas (`normas_ref`); norma N : M norma
   (`mapeamentos`).
 - Embutir × referenciar: lacunas e verificações são sempre lidas junto com o relatório e cabem
-  folgadamente nos 16 MB por documento; as normas são referenciadas porque várias lacunas
+  com folga nos 16 MiB por documento (limite do MongoDB); as normas são referenciadas porque várias lacunas
   citam a mesma norma.
 
 Abra `docs/dicionario_dados.md` na tabela de `relatorios`: tipo, obrigatoriedade, domínio

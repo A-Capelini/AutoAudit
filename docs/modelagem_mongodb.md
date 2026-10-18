@@ -23,7 +23,7 @@ normas  <-- normas_ref (opcional) --  relatorios  -- auditoria_id -->  auditoria
 
 1. **Contrato do frontend é a fonte da verdade.** Ele já está no ar; o banco se adapta a ele.
 2. **Auditoria ≠ relatório.** A auditoria tem ciclo de vida (processando, erro) mesmo sem resultado; o relatório só existe quando há resultado. Por isso a relação é **auditoria 1 : 0..1 relatório** (não 1:1): uma auditoria `pendente`, `processando` ou com `erro` não tem relatório. O histórico lista `relatorios`.
-3. **Lacunas e verificações embutidas no relatório.** São sempre lidas juntas e o tamanho fica muito abaixo de 16 MB por documento.
+3. **Lacunas e verificações embutidas no relatório.** São sempre lidas juntas e o tamanho fica muito abaixo de 16 MiB (16.777.216 bytes, o limite do MongoDB) por documento.
 4. **Embeddings ficam no FAISS.** O Mongo guarda só `faiss_ids`, para ir do vetor ao texto da norma.
    O modelo lê no máximo 256 tokens por vez e ~22% do NIST e ~34% da LGPD passam disso (ex.: Art. 7º tem
    684 tokens). Essas normas são divididas em **trechos** (por inciso, parágrafo ou frase, ~150 tokens cada, repetindo
