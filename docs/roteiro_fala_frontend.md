@@ -14,10 +14,12 @@ Arquivo dos slides: `AutoAudit_Frontend_Apresentacao.pptx` (as notas de orador s
    streamlit run frontend/app.py
    ```
    Deixe a aba `http://localhost:8501` aberta, mas escondida.
-3. **Prepare dois arquivos** (PDF ou DOCX) com nomes que pareçam políticas, por exemplo
-   `Politica_Seguranca_Nimbus_Logistica.pdf` e `Politica_Seguranca_Alfa_Saude.pdf`. Deixe-os numa pasta fácil de achar
-   na janela de upload. **A versão atual não lê o conteúdo do arquivo:** as notas variam conforme o arquivo, mas as
-   lacunas são sempre as mesmas.
+3. **Copie os arquivos de exemplo** de `data/samples/` para uma pasta fácil de achar na janela de upload (por exemplo, `~/Desktop/demo`):
+   - `Politica_Seguranca_Nimbus_Logistica.pdf` (1º envio, com Verificação Prática);
+   - `Politica_Seguranca_Alfa_Saude.pdf` (2º envio, sem Verificação Prática);
+   - `Politica_Seguranca_Orion_Pagamentos.pdf` (reserva, caso queira mostrar mais uma auditoria).
+
+   **A versão atual não lê o conteúdo do arquivo:** as notas variam conforme o arquivo, mas as lacunas são sempre as mesmas.
 4. Zoom do navegador em 125% (Ctrl +) para a plateia ler; modo tela cheia (F11) na hora da demonstração.
 5. Abra os slides em modo de apresentação e a visão do apresentador (notas) no notebook, se possível.
 
@@ -55,7 +57,7 @@ o AutoAudit é um **assistente**, não substitui a revisão humana."
 
 **Slide 7 — Sem verificação e histórico (1 min)**
 "Quando a Verificação Prática não é executada, a nota prática aparece como traço e o app explica o motivo. No histórico
-vemos a tabela das auditorias, a evolução da nota e podemos reabrir qualquer resultado. Hoje o histórico vale só
+vemos a tabela das auditorias, uma prévia da evolução da nota (na versão final, por política) e podemos reabrir qualquer resultado. Hoje o histórico vale só
 para a sessão; com o banco conectado ele fica permanente."
 
 **Slide 8 — Do frontend ao banco (1 min)**
@@ -76,7 +78,7 @@ da Nimbus Logística que está no banco tem exatamente a lacuna de senhas que va
 | 4 | No filtro de severidade, **remova "baixa" e "média"**; depois recoloque. | "Posso focar só nas lacunas de severidade alta." |
 | 5 | Abra a aba **Verificação prática**. | "3 de 4 falharam: a política diz uma coisa e o ambiente tem outra. Exemplo: a senha exige 12 caracteres e o ambiente aceita 6." |
 | 6 | Volte a **Nova auditoria**, envie `Politica_Seguranca_Alfa_Saude.pdf`, **desligue** a chave e analise. | "Agora sem a Verificação Prática." Mostre o traço na nota prática e a aba explicando. |
-| 7 | Abra **Histórico**. | "Duas auditorias, a nota prática vazia na segunda e o gráfico de evolução." |
+| 7 | Abra **Histórico**. | "Aqui ficam as auditorias da sessão, com a nota prática vazia na segunda. O gráfico de evolução é uma prévia: na versão final ele compara **versões da mesma política** ao longo do tempo, para mostrar se a empresa melhorou." (Não entre em detalhes do gráfico: hoje ele liga todas as auditorias, de qualquer empresa.) |
 | 8 | Selecione a primeira no seletor e clique em **Abrir resultado**. | "Reabro qualquer auditoria anterior." |
 
 Volte aos slides (Alt+Tab) para o slide 10.
@@ -96,6 +98,7 @@ A apresentação final é em 24/11."
 |---|---|
 | Os resultados são reais? | Não: nesta versão são simulados e isso está escrito na barra lateral. A análise real (PLN e Verificação Prática) é a Sprint 3. O que está pronto é a interface e o formato dos dados. |
 | Então por que a nota muda de um arquivo para outro? | A função simulada gera as notas a partir do conteúdo do arquivo (hash), então o mesmo arquivo dá sempre a mesma nota. As lacunas são fixas por enquanto. |
+| O histórico compara empresas diferentes? | Hoje ele lista todas as auditorias da sessão. A evolução só faz sentido para a mesma política em versões diferentes; agrupar por política é um dos pontos da Sprint 3, junto com o banco. |
 | Como a nota é calculada? | Média simples da nota documental e da prática; se não há Verificação Prática, vale só a documental. É provisória e deve ser refinada com o professor. |
 | Por que Streamlit? | Rápido para prototipar em Python, a mesma linguagem do PLN e do backend, e publica na nuvem gratuitamente. |
 | Onde ficam os dados? | Hoje só na sessão do navegador. Com o backend, no MongoDB (coleção `relatorios`), que já está modelado e replicável. |
