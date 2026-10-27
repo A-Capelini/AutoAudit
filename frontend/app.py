@@ -17,7 +17,7 @@ st.markdown(
     .nota-escala {font-size: 1.4rem; color: #667085;}
     .selo {display:inline-block; padding:2px 10px; border-radius:4px; color:#fff;
            font-size:.8rem; font-weight:600;}
-    .trecho {border-left: 3px solid #CBD5E1; padding-left: .8rem; color:#475467;}
+    .trecho {border-left: 3px solid #CBD5E1; padding-left: .8rem; margin-bottom: .8rem; color:#475467;}
     </style>
     """,
     unsafe_allow_html=True,
@@ -152,9 +152,12 @@ def pagina_historico():
     st.dataframe(df, width="stretch", hide_index=True)
     if len(hist) > 1:
         st.markdown("**Evolução da Saúde de Compliance**")
+        # O rótulo leva o número da auditoria: duas auditorias no mesmo minuto têm a mesma
+        # data, e um índice repetido faz o gráfico de linha colapsar em um traço vertical.
+        cronologico = list(reversed(hist))
         evolucao = pd.DataFrame(
-            {"Saúde de Compliance": [r["saude_compliance"] for r in reversed(hist)]},
-            index=[r["data"] for r in reversed(hist)],
+            {"Saúde de Compliance": [r["saude_compliance"] for r in cronologico]},
+            index=[f'{i:02d} · {r["data"][:5]} {r["data"][-5:]}' for i, r in enumerate(cronologico, start=1)],
         )
         st.line_chart(evolucao)
     escolha = st.selectbox("Abrir auditoria", range(len(hist)),
