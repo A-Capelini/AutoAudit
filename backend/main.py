@@ -9,7 +9,8 @@ Documentação interativa gerada automaticamente: http://localhost:8000/docs
 
 Rotas:
     POST /auditorias        envia PDF/DOCX, analisa e grava auditoria + relatório no MongoDB
-    GET  /auditorias        histórico (mais recentes primeiro)
+    GET  /auditorias        histórico de execuções (mais recentes primeiro)
+    GET  /relatorios        histórico de relatórios completos (usado pela tela Histórico)
     GET  /relatorios/{id}   relatório completo, no formato do contrato com o frontend
     GET  /saude             a API e o MongoDB estão de pé?
 
@@ -242,6 +243,13 @@ def listar_auditorias(
             "erro": aud.get("erro"),
         })
     return itens
+
+
+@app.get("/relatorios", response_model=list[Relatorio],
+         summary="Histórico: relatórios completos, mais recentes primeiro")
+def listar_relatorios(limite: int = Query(50, ge=1, le=200),
+                      repo: Repositorio = Depends(get_repo)) -> list[dict]:
+    return [relatorio_para_contrato(doc) for doc in repo.listar_relatorios(limite=limite)]
 
 
 @app.get("/relatorios/{relatorio_id}", response_model=Relatorio, summary="Relatório completo")

@@ -4,7 +4,9 @@ Orquestra o pipeline de PLN: texto -> seções -> lacunas -> notas.
 Nota documental (0 a 5), fórmula simples e explicável:
 
     peso da lacuna:  alta = 3, média = 2, baixa = 1
-    peso máximo:     3 x número de seções do documento (todas as seções com lacuna alta)
+    peso máximo:     3 x "unidades" do documento (todas com lacuna alta); unidades = o maior entre
+                     o nº de seções, MIN_SECOES e 1 por FRASES_POR_UNIDADE frases (para um documento
+                     longo, com poucos capítulos enormes, não ser punido só pelo tamanho)
     nota_documental = 5 x (1 - peso_total / peso_máximo)      (mínimo 0, 1 casa decimal)
 
 A fórmula é provisória (heurística da Sprint 3) e será calibrada com as políticas de teste.
@@ -26,6 +28,7 @@ log = logging.getLogger("autoaudit")
 
 PESOS = {"alta": 3, "média": 2, "baixa": 1}
 MIN_SECOES = 5  # evita que um documento curtíssimo dê nota extrema com uma única lacuna
+FRASES_POR_UNIDADE = 10
 
 
 def calcular_nota_documental(lacunas: list[dict], n_secoes: int) -> float:
@@ -59,7 +62,9 @@ def analisar_texto(texto: str) -> dict:
     lacunas = detectar_lacunas(secoes)
     numeradas = [s for s in secoes if s.numero is not None]
     n_secoes = len(numeradas) or len(secoes)
-    documental = calcular_nota_documental(lacunas, n_secoes)
+    total_frases = sum(len(s.sentencas) for s in secoes)
+    unidades = max(n_secoes, round(total_frases / FRASES_POR_UNIDADE))
+    documental = calcular_nota_documental(lacunas, unidades)
     return {
         "nota_documental": documental,
         "nota_pratica": None,

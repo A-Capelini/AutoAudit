@@ -62,6 +62,11 @@ def main() -> int:
     historico = requests.get(f"{BASE}/auditorias", params={"limite": 10}, timeout=10).json()
     checar("histórico devolve lista", isinstance(historico, list) and len(historico) >= 1,
            f"({len(historico)} itens)")
+    r = requests.get(f"{BASE}/relatorios", params={"limite": 5}, timeout=10)
+    lista = r.json() if r.status_code == 200 else []
+    checar("GET /relatorios devolve relatórios no contrato",
+           r.status_code == 200 and len(lista) >= 1 and all(set(x) == CHAVES for x in lista),
+           f"({len(lista)} itens)")
     if ultimo_id:
         print(f"GET /relatorios/{ultimo_id}")
         r = requests.get(f"{BASE}/relatorios/{ultimo_id}", timeout=10)

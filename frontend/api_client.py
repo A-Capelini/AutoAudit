@@ -43,6 +43,16 @@ def estado_api(url: str) -> dict | None:
         return None
 
 
+@st.cache_data(ttl=3, show_spinner=False)
+def listar_historico(url: str, limite: int = 50) -> list[dict] | None:
+    """Relatórios salvos no MongoDB (mais recentes primeiro), ou None se a API não responde."""
+    try:
+        r = requests.get(f"{url}/relatorios", params={"limite": limite}, timeout=10)
+        return r.json() if r.status_code == 200 else None
+    except (requests.RequestException, ValueError):
+        return None
+
+
 def _detalhe(resposta: requests.Response) -> str:
     try:
         detalhe = resposta.json().get("detail")

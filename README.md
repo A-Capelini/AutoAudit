@@ -23,6 +23,16 @@ Stack: Python · Streamlit · FastAPI · LangChain + LLM · MongoDB (não relaci
 ```
 AutoAudit/
 ├── .streamlit/config.toml     # tema do Streamlit (precisa ficar na raiz)
+├── backend/
+│   ├── main.py                # API FastAPI: uvicorn backend.main:app
+│   ├── pln/
+│   │   ├── extracao.py        # texto de PDF/DOCX, seções e sentenças
+│   │   ├── regras.py          # regras de detecção de lacunas (termos vagos, MFA, senha, incidentes…)
+│   │   ├── busca_normas.py    # busca semântica (FAISS) nas normas
+│   │   └── analisador.py      # orquestra o pipeline, calcula as notas e liga as lacunas às normas
+│   ├── validar_gabarito.py    # confere as regras com o gabarito da política da Nimbus
+│   ├── testar_busca.py        # mostra o que o FAISS devolve para cada lacuna
+│   └── testar_api.py          # teste de ponta a ponta com a API no ar
 ├── data/
 │   ├── raw/                   # arquivos baixados (não vão para o Git)
 │   ├── processed/             # índice FAISS e metadados gerados (não vão para o Git)
@@ -45,7 +55,8 @@ AutoAudit/
 │   └── roteiro_demonstracao.md# roteiro da apresentação do banco
 ├── frontend/
 │   ├── app.py                 # interface Streamlit
-│   └── mock_data.py           # relatório simulado (será trocado pela API)
+│   ├── api_client.py          # chama a API do backend; sem ela, cai no modo simulado
+│   └── mock_data.py           # relatório simulado (usado só quando a API está fora do ar)
 ├── scripts/                   # download do dataset (NIST, LGPD, NVD) + DATASETS.md
 ├── setup/environment.yml      # ambiente Conda (conda-forge) — uso local
 ├── .env.example               # copie para .env
@@ -90,9 +101,42 @@ Sempre a partir da **raiz** do repositório (é de lá que o Streamlit lê o `.s
 streamlit run frontend/app.py
 ```
 
-A interface usa **dados simulados** (`frontend/mock_data.py`); o backend (Sprint 3) ainda não existe. O dicionário que
-`analisar_documento()` devolve é o contrato com a futura API: quando o backend existir, só essa função muda.
-O banco já foi desenhado para guardar esse dicionário sem tradução (veja `db/testar_contrato.py`).
+O frontend chama a API do backend (`frontend/api_client.py`). Se a API estiver fora do ar, ele usa **dados
+simulados** (`frontend/mock_data.py`) e avisa na tela: é o caso do app publicado no Streamlit Cloud, que não
+alcança o MongoDB nem a API da máquina local. A URL da API vem de `AUTOAUDIT_API_URL` (variável de ambiente ou
+`st.secrets`); o padrão é `http://localhost:8000`. O dicionário que a API devolve é o contrato com o frontend
+(o mesmo que o banco guarda sem tradução; veja `db/testar_contrato.py`).
+
+## Rodar o backend (Sprint 3)
+
+Pré-requisitos: ambiente `autoaudit` ativo, MongoDB no ar (`docker compose up -d`), `.env` configurado e o
+índice FAISS gerado (`python db/build_faiss.py`; veja a seção do índice). A partir da **raiz** do repositório:
+
+```bash
+uvicorn backend.main:app            # API em http://localhost:8000 (documentação interativa em /docs)
+streamlit run frontend/app.py       # em outro terminal
+```
+
+Rotas: `POST /auditorias` (envia PDF/DOCX), `GET /auditorias`, `GET /relatorios`, `GET /relatorios/{id}`, `GET /saude`.
+Fluxo: texto do documento → seções e sentenças → regras de detecção de lacunas → busca semântica nas normas (FAISS)
+→ notas → gravação no MongoDB (`auditorias` e `relatorios`, via `db/repositorio.py`).
+
+Testes (os dois primeiros não precisam do MongoDB):
+
+```bash
+python backend/validar_gabarito.py  # regras x gabarito da Nimbus (6 falhas plantadas, 0 falsos positivos)
+python backend/testar_busca.py      # normas que o FAISS associa a cada lacuna (precisa do índice)
+python backend/testar_api.py        # ponta a ponta, com a API e o MongoDB no ar
+```
+
+Limitações desta versão (ditas com franqueza na apresentação):
+
+- A análise usa **regras explícitas** (expressões regulares e critérios de ausência), sem LLM: acha o que as regras
+  conhecem. A busca semântica liga cada lacuna às normas do NIST e da LGPD, com filtro de similaridade.
+- A **nota documental** é uma fórmula provisória (peso por severidade sobre o máximo possível); falta calibrar.
+- A **Verificação Prática não é executada**: `nota_pratica` e `verificacoes` voltam vazios e o frontend mostra
+  "não executada".
+- PDF escaneado (imagem) não é suportado: não há OCR.
 
 ## Banco de dados (MongoDB)
 
@@ -153,7 +197,8 @@ CIS Controls v8 e templates do SANS exigem download manual; a ISO 27001 **não d
 1. Repositório: `A-Capelini/AutoAudit`, branch `main` (app publicado em https://autoaudit.streamlit.app).
 2. **Main file path:** `frontend/app.py`
 3. Em *Advanced settings*, escolha Python 3.11.
-4. Segredos (URL da API, chaves) vão em *Secrets* no painel — nunca no Git (`.streamlit/secrets.toml` está no `.gitignore`).
+4. Segredos (chaves) vão em *Secrets* no painel — nunca no Git (`.streamlit/secrets.toml` está no `.gitignore`).
+5. Sem `AUTOAUDIT_API_URL`, o app publicado não alcança nenhuma API e roda no modo simulado (com aviso na tela).
 
 ## Cronograma (4 sprints)
 
@@ -161,7 +206,7 @@ CIS Controls v8 e templates do SANS exigem download manual; a ISO 27001 **não d
 |---|---|---|
 | 1 — Frontend | Interface funcionando | Entregue em 13/10 (interface com dados simulados) |
 | 2 — Banco de dados | DER, base com as coleções criadas e CRUD funcionando | Pronto; **entrega e demonstração em 20/10** |
-| 3 — Backend | Lógica, FastAPI e integração do motor de PLN | Pendente |
+| 3 — Backend | Lógica, FastAPI e integração do motor de PLN | API, extração de texto, regras de lacunas, busca FAISS e gravação no MongoDB prontas; **apresentação em 03/11** |
 | 4 — Apresentação | Preparação e entrega final (24/11) | Pendente |
 
 Sprint 2 (banco de dados):
@@ -181,10 +226,17 @@ Frontend (Sprint 1):
 - [x] Revisão do código: fuso horário de São Paulo na data e HTML escapado nos trechos da política
 - [ ] Revisar textos e visual (ajustes finos, sem prazo)
 
-Pendências para a Sprint 3 (backend):
+Sprint 3 (backend):
 
-- [ ] Testar o motor de PLN com templates do SANS (o frontend atual não lê o conteúdo do arquivo)
-- [ ] Gerar lacunas a partir do documento enviado (hoje o mock devolve sempre as mesmas) e normalizar a severidade (`alta`, `média`, `baixa`) antes de devolver o relatório
+- [x] API FastAPI (`backend/main.py`): upload de PDF/DOCX, histórico e relatório, com gravação no MongoDB
+- [x] Extração de texto e divisão em seções e sentenças (`backend/pln/extracao.py`)
+- [x] Lacunas geradas a partir do documento enviado, com severidade normalizada (`alta`, `média`, `baixa`) (`backend/pln/regras.py`)
+- [x] Busca semântica (FAISS) ligando cada lacuna às normas (`backend/pln/busca_normas.py`)
+- [x] Validação contra o gabarito da Nimbus: 6 de 6 falhas achadas, sem falso positivo (`backend/validar_gabarito.py`)
+- [x] Frontend integrado à API (com fallback simulado) e histórico lido do MongoDB
+- [ ] Verificação Prática real (pentest em laboratório): `nota_pratica` e `verificacoes` ainda vazios
+- [ ] Calibrar a nota documental e ampliar as regras (hoje só as quatro políticas de teste foram usadas)
+- [ ] Testar o motor de PLN com templates do SANS
 
 Trabalho de dados em paralelo (alimenta a Sprint 3):
 
@@ -192,3 +244,10 @@ Trabalho de dados em paralelo (alimenta a Sprint 3):
 - [x] Parser que estrutura cada fonte em documentos curtos: NIST (1.014 controles ativos) e LGPD (73 artigos vigentes) prontos; faltam CIS e SANS
 - [x] Embeddings (`paraphrase-multilingual-mpnet-base-v2`) e índice FAISS (`db/build_faiss.py`; normas longas divididas em trechos)
 - [x] Coleções do MongoDB (`normas`, `auditorias`, `relatorios`)
+
+### Ferramentas de apoio (Sprint 3)
+
+- `python backend/analisar_arquivo.py <arquivo> [--busca]` — analisa um PDF/DOCX no terminal, sem API nem banco.
+- `python db/limpar_testes.py [--apagar]` — lista (ou apaga) as auditorias de teste, preservando os exemplos do seed.
+- `data/samples/Politica_Seguranca_Nimbus_Logistica_Revisada.docx` — versão corrigida da Nimbus (fictícia), nota 5,0.
+- `docs/roteiro_demonstracao_backend.md` — roteiro da demonstração ao vivo.

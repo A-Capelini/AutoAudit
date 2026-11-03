@@ -69,10 +69,19 @@ TEMAS: list[tuple[str, str]] = [
 REFERENCIA_PADRAO = "NIST SP 800-53 PL-1 (políticas e procedimentos)"
 
 
+# Frequência concreta na mesma frase ("periodicamente, pelo menos a cada quatro anos") tira a vagueza
+# dos termos de periodicidade.
+TERMOS_DE_FREQUENCIA = (r"peri[oó]dic|regularmente|de tempos em tempos")
+FREQUENCIA_CONCRETA = (r"\ba cada\b|pelo menos|ao menos|no m[ií]nimo|\b\d+\s*(?:dias?|semanas?|meses|anos?|horas?)\b"
+                       r"|\banual|semestral|trimestral|mensal|semanal|di[aá]ri[oa]")
+
+
 def _termo_vago(frase: str) -> tuple[str, str] | None:
     for padrao, severidade in TERMOS_VAGOS:
         achou = re.search(padrao, frase, re.IGNORECASE)
         if achou:
+            if _tem(TERMOS_DE_FREQUENCIA, achou.group(0)) and _tem(FREQUENCIA_CONCRETA, frase):
+                continue
             return achou.group(0), severidade
     return None
 
@@ -128,6 +137,18 @@ def _regra_mfa(secao: Secao, frase: str, contexto: str) -> dict | None:
 def _regra_incidente(secao: Secao, frase: str, contexto: str) -> dict | None:
     if not _tem(r"\bincidentes?\b", frase):
         return None
+    # Só frases que tratam do TRATAMENTO do incidente; ignora títulos, itens de lista de definições
+    # ("III – Ameaça: causa potencial de um incidente…") e menções de passagem.
+    if _tem(r"\b[IVXL]{1,6}\.?$", frase.strip()):     # fragmento de lista cortado ("…Cibernéticos; e VIII.")
+        return None
+    if len(frase) < 55 or not _tem(r"trat|respost|comunic|notific|registr|gerenci|report|investig|resolu", frase):
+        return None
+    if _tem(r"^\W*(?:[IVXL]+|[a-z])\s*[–\-\)]\s", frase) or _tem(r"^[^:]{1,50}:\s", frase):
+        return None
+    if _tem(r"^[^.;:]{1,70}\s[—–]\s", frase):   # "Plano de Gerenciamento de Incidente — contém…": definição
+        return None
+    if _tem(r"\b(?:Lei|Decreto|Norma|Instru[çc][ãa]o Normativa|Resolu[çc][ãa]o|Portaria)\b[^.]{0,60}\bn[ºo°]", frase):
+        return None                              # citação de lei/norma, não regra de tratamento
     faltas = []
     if not _tem(r"\b\d+\s*(?:horas?|h|dias?)\b|imediat|no mesmo dia", contexto):
         faltas.append("prazo")
@@ -213,10 +234,15 @@ def _regra_sem_encarregado(secoes: list[Secao]) -> dict | None:
 
 # --------------------------------------------------------------------------- orquestração
 
+SECOES_IGNORADAS = r"defini[çc]|gloss[áa]rio|\bconceitos\b|refer[êe]ncias (?:legais|normativas|bibliogr)|^termos\b"
+
+
 def detectar_lacunas(secoes: list[Secao]) -> list[dict]:
     """Aplica todas as regras e devolve as lacunas, da mais grave para a menos grave."""
     achados: list[dict] = []
     for indice, secao in enumerate(secoes):
+        if _tem(SECOES_IGNORADAS, secao.titulo):
+            continue  # glossário, definições e referências não são regras da política
         contexto = " ".join(secao.sentencas)
         usadas: set[str] = set()
         for frase in secao.sentencas:

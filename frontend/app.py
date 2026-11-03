@@ -4,7 +4,7 @@ import html
 import pandas as pd
 import streamlit as st
 
-from api_client import ErroApi, analisar, estado_api, url_api
+from api_client import ErroApi, analisar, estado_api, listar_historico, url_api
 
 st.set_page_config(page_title="AutoAudit", page_icon="🛡️", layout="wide")
 
@@ -68,6 +68,7 @@ def pagina_nova():
             st.error(f"Não foi possível analisar o documento: {erro}")
             return
         rel["origem"] = origem  # só do frontend: "api" (backend real) ou "simulado"
+        listar_historico.clear()  # a auditoria nova já está no banco: o histórico precisa reler
         st.session_state.relatorio = rel
         st.session_state.historico.insert(0, rel)
         st.session_state.ir_para = "Resultado"
@@ -149,10 +150,20 @@ def pagina_resultado():
 
 def pagina_historico():
     st.title("Histórico")
-    hist = st.session_state.historico
+    do_banco = listar_historico(url_api()) if estado_api(url_api()) else None
+    hist = do_banco if do_banco is not None else st.session_state.historico
+    if do_banco is not None:
+        st.caption(f"Histórico salvo no MongoDB ({len(hist)} auditorias).")
+    else:
+        st.caption("Backend fora do ar: mostrando só as auditorias feitas nesta sessão do navegador.")
     if not hist:
-        st.info("Nenhuma auditoria nesta sessão. Quando o banco estiver conectado, o histórico ficará salvo no MongoDB.")
+        st.info("Nenhuma auditoria salva ainda." if do_banco is not None else
+                "Nenhuma auditoria nesta sessão. Com o backend no ar, o histórico fica salvo no MongoDB.")
         return
+    politicas = sorted({r["arquivo"] for r in hist})
+    filtro = st.selectbox("Política", ["Todas"] + politicas) if len(politicas) > 1 else "Todas"
+    if filtro != "Todas":
+        hist = [r for r in hist if r["arquivo"] == filtro]
     def fmt(x):
         return "—" if x is None else f"{x:.1f}"
 
@@ -161,7 +172,7 @@ def pagina_historico():
           "Prática": fmt(r["nota_pratica"]), "Saúde de Compliance": fmt(r["saude_compliance"])} for r in hist]
     )
     st.dataframe(df, width="stretch", hide_index=True)
-    if len(hist) > 1:
+    if len(hist) > 1 and (filtro != "Todas" or len(politicas) == 1):
         st.markdown("**Evolução da Saúde de Compliance**")
         # O rótulo leva o número da auditoria: duas auditorias no mesmo minuto têm a mesma
         # data, e um índice repetido faz o gráfico de linha colapsar em um traço vertical.
@@ -171,6 +182,8 @@ def pagina_historico():
             index=[f'{i:02d} · {r["data"][:5]} {r["data"][-5:]}' for i, r in enumerate(cronologico, start=1)],
         )
         st.line_chart(evolucao)
+    elif len(hist) > 1:
+        st.caption("Escolha uma política acima para ver a evolução da nota dela.")
     escolha = st.selectbox("Abrir auditoria", range(len(hist)),
                            format_func=lambda i: f'{hist[i]["data"]} — {hist[i]["arquivo"]}')
     if st.button("Abrir resultado"):

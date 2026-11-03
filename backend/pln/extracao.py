@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import io
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 
 MIN_CARACTERES = 200  # abaixo disso o documento é considerado vazio / escaneado
@@ -76,9 +77,27 @@ def _ler_pdf(conteudo: bytes) -> str:
         leitor = PdfReader(io.BytesIO(conteudo))
         if leitor.is_encrypted:
             leitor.decrypt("")  # PDFs só com senha de proprietário abrem com senha vazia
-        return "\n".join((pagina.extract_text() or "") for pagina in leitor.pages)
+        paginas = [(pagina.extract_text() or "") for pagina in leitor.pages]
     except Exception as exc:  # pypdf levanta vários tipos de erro para arquivos ruins
         raise ErroExtracao(f"Não foi possível ler o PDF (corrompido ou protegido por senha): {exc}") from exc
+    return _limpar_paginas(paginas)
+
+
+# "Página 3", "3 de 20", "3/20" e números soltos de página.
+RE_NUM_PAGINA = re.compile(r"^(?:p[áa]g(?:ina)?\.?\s*)?\d{1,4}(?:\s*(?:de|/)\s*\d{1,4})?$", re.IGNORECASE)
+
+
+def _limpar_paginas(paginas: list[str]) -> str:
+    """Junta as páginas tirando o que não é conteúdo: numeração de página e cabeçalhos/rodapés
+    (linha curta que se repete na maioria das páginas, ex.: "Classificação: Uso interno")."""
+    linhas = [[l.strip() for l in texto.splitlines()] for texto in paginas]
+    repetidas: set[str] = set()
+    if len(paginas) >= 3:
+        contagem = Counter(l for pagina in linhas for l in set(pagina) if l and len(l) <= 120)
+        minimo = max(3, int(0.6 * len(paginas)))
+        repetidas = {l for l, n in contagem.items() if n >= minimo}
+    saida = [l for pagina in linhas for l in pagina if l not in repetidas and not RE_NUM_PAGINA.match(l)]
+    return "\n".join(saida)
 
 
 def _ler_docx(conteudo: bytes) -> str:
@@ -123,6 +142,26 @@ def _normalizar(texto: str) -> str:
 # Exigir o ponto evita confundir "30 dias após a admissão" (linha quebrada) com um título.
 RE_TITULO = re.compile(
     r"^(?:#\s+)?(?P<num>\d{1,2}(?:\.\d{1,2})*\.|\d{1,2}(?:\.\d{1,2})+)\s+(?P<tit>\S.{0,78})$")
+# ABNT: "1 OBJETIVO" / "2 Escopo" (número sem ponto). Só vale se for o número ESPERADO na sequência
+# (1, 2, 3…), para não confundir com linha quebrada ("24 horas depois…").
+RE_TITULO_SIMPLES = re.compile(r"^(?P<num>\d{1,2})\s+(?P<tit>[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][^.!?;:]{2,60})$")
+# Título só em maiúsculas, sem número ("OBJETIVO", "RESPONSABILIDADES E COMPETÊNCIAS").
+RE_MAIUSCULO = re.compile(r"^[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-ZÁÀÂÃÉÊÍÓÔÕÚÇ0-9 /,&–-]{4,59}$")
+# Linha de sumário: "1. Objetivo ........ 3".
+RE_SUMARIO = re.compile(r"(?:\.{3,}|…)\s*\d+\s*$")
+# Título numerado de verdade é curto e não é frase: "4.2 Senhas" sim; "1.1 A política tem por objetivo
+# proteger…" (item numerado do corpo, comum em PoSIC de órgãos públicos) não.
+RE_VERBO_FRASE = re.compile(r"\b(?:deve|devem|dever[áa]|ser[áa]|ser[ãa]o|é|s[ãa]o|poder[áa]|compete|cabe|tem|possui)\b",
+                            re.IGNORECASE)
+RE_CAPITULO = re.compile(r"^(?:CAP[ÍI]TULO|T[ÍI]TULO|SE[ÇC][ÃA]O|ANEXO|PARTE)\b", re.IGNORECASE)
+
+
+def _parece_titulo(titulo: str) -> bool:
+    titulo = titulo.strip()
+    return (len(titulo) <= 60 and len(titulo.split()) <= 9 and ":" not in titulo
+            and not titulo.endswith((".", ",", ";")) and not RE_VERBO_FRASE.search(titulo))
+
+
 RE_MARCADOR = re.compile(r"^(?:[•·▪●○*\-–—]\s+|\(?[a-z]\)\s+|\d+\)\s+)")
 ABREVIACOES = ("art.", "arts.", "inc.", "ex.", "etc.", "nº.", "sr.", "dr.", "ltda.", "s.a.",
                "p.ex.", "cf.", "obs.")
@@ -132,30 +171,54 @@ def dividir_secoes(texto: str) -> list[Secao]:
     """Quebra o texto em seções (por título numerado) e cada seção em sentenças."""
     secoes = [Secao(None, "Preâmbulo")]
     paragrafo: list[str] = []
+    ultimo_numero = 0  # número da última seção numerada (para validar "2 Escopo" sem ponto)
 
     def fechar() -> None:
         if paragrafo:
             secoes[-1].sentencas.extend(_sentencas(_juntar(paragrafo)))
             paragrafo.clear()
 
+    def abrir_sem_numero(titulo: str) -> None:
+        """Título sem número. "CAPÍTULO II" sozinho numa linha e o título na seguinte viram UMA seção."""
+        anterior = secoes[-1]
+        if not anterior.sentencas and anterior.numero is None and RE_CAPITULO.match(anterior.titulo) \
+                and not RE_CAPITULO.match(titulo):
+            anterior.titulo = f"{anterior.titulo} — {titulo}"
+        else:
+            secoes.append(Secao(None, titulo))
+
     for bruta in texto.splitlines():
         linha = bruta.strip()
         if not linha:
             fechar()
             continue
+        if RE_SUMARIO.search(linha):                  # linha do sumário: não é conteúdo nem título
+            continue
         achou = RE_TITULO.match(linha)
-        if achou and achou["tit"][0].isupper() and not achou["tit"].endswith((".", ",", ";")):
+        simples = RE_TITULO_SIMPLES.match(linha)
+        if achou and achou["tit"][0].isupper() and _parece_titulo(achou["tit"]):
             fechar()
             secoes.append(Secao(achou["num"].rstrip("."), achou["tit"].strip()))
+            ultimo_numero = int(achou["num"].split(".")[0])
+        elif simples and int(simples["num"]) == ultimo_numero + 1:
+            fechar()
+            secoes.append(Secao(simples["num"], simples["tit"].strip()))
+            ultimo_numero = int(simples["num"])
         elif linha.startswith("# "):                  # título do Word sem numeração
             fechar()
-            secoes.append(Secao(None, linha[2:].strip()))
+            abrir_sem_numero(linha[2:].strip())
+        elif RE_MAIUSCULO.match(linha) and len(linha.split()) <= 6 and len(linha) >= 5:
+            fechar()                                  # título em maiúsculas, sem número
+            abrir_sem_numero(linha.strip())
         else:
             if RE_MARCADOR.match(linha):              # item de lista começa um novo parágrafo
                 fechar()
             paragrafo.append(linha)
     fechar()
-    return [s for s in secoes if s.sentencas or s.titulo != "Preâmbulo"]
+    resultado = [s for s in secoes if s.sentencas or s.titulo != "Preâmbulo"]
+    if len(resultado) == 1 and resultado[0].titulo == "Preâmbulo":
+        resultado[0].titulo = "Documento"             # nenhum título reconhecido: o texto todo é uma seção
+    return resultado
 
 
 def _juntar(linhas: list[str]) -> str:
