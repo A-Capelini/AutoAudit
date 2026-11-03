@@ -24,6 +24,9 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
+import threading
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Literal
 from zoneinfo import ZoneInfo
@@ -33,7 +36,8 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from pymongo.errors import PyMongoError
 
-from backend.pln.analisador import analisar_texto
+from backend.pln.analisador import analisar_texto, enriquecer_lacunas
+from backend.pln.busca_normas import BuscadorNormas
 from backend.pln.extracao import ErroExtracao, detectar_formato, extrair_texto
 from db.repositorio import Repositorio
 
@@ -42,11 +46,32 @@ log = logging.getLogger("autoaudit")
 FUSO = ZoneInfo("America/Sao_Paulo")
 TAMANHO_MAXIMO = 10 * 1024 * 1024  # 10 MB por documento
 
+# Busca semântica (FAISS). AUTOAUDIT_BUSCA=0 desliga (a API segue com as referências das regras).
+buscador: BuscadorNormas | None = BuscadorNormas() if os.getenv("AUTOAUDIT_BUSCA", "1") != "0" else None
+
+
+def _aquecer_busca() -> None:
+    try:
+        buscador.carregar()
+    except Exception as exc:  # sem índice/modelo a API continua; a rota /saude mostra o estado
+        log.warning("Busca semântica não carregou: %s", exc)
+
+
+@asynccontextmanager
+async def ciclo_de_vida(_app: FastAPI):
+    """Carrega o modelo de embeddings em segundo plano para a 1ª auditoria não esperar."""
+    if buscador is not None and buscador.arquivos_existem:
+        threading.Thread(target=_aquecer_busca, daemon=True).start()
+    yield
+
+
 app = FastAPI(
     title="AutoAudit API",
     version="0.3.0",
     description="Auditoria de políticas de segurança da informação com PLN. "
-                "Sprint 3: extração de texto, regras de detecção de lacunas e gravação no MongoDB.",
+                "Sprint 3: extração de texto, regras de detecção de lacunas, busca semântica nas "
+                "normas (FAISS) e gravação no MongoDB.",
+    lifespan=ciclo_de_vida,
 )
 
 
@@ -149,11 +174,12 @@ def raiz() -> RedirectResponse:
 
 @app.get("/saude", summary="A API e o MongoDB estão de pé?")
 def saude() -> dict:
+    busca = "desativada" if buscador is None else buscador.estado
     try:
         get_repo().db.client.admin.command("ping")
-        return {"api": "ok", "mongo": "ok"}
+        return {"api": "ok", "mongo": "ok", "busca_semantica": busca}
     except (HTTPException, PyMongoError):
-        return {"api": "ok", "mongo": "indisponível"}
+        return {"api": "ok", "mongo": "indisponível", "busca_semantica": busca}
 
 
 @app.post("/auditorias", response_model=Relatorio, status_code=201,
@@ -180,9 +206,12 @@ def criar_auditoria(
     try:
         texto = extrair_texto(nome, conteudo)
         resultado = analisar_texto(texto)
+        lacunas = enriquecer_lacunas(
+            resultado["lacunas"], buscador,
+            lambda fonte, ident: (repo.obter_norma(fonte, ident) or {}).get("_id"))
         relatorio_id = repo.criar_relatorio(
             auditoria_id, resultado["nota_documental"], resultado["saude_compliance"],
-            resultado["lacunas"], nota_pratica=None, verificacoes=None)
+            lacunas, nota_pratica=None, verificacoes=None)
         repo.atualizar_auditoria(auditoria_id, status="concluida")
     except ErroExtracao as exc:
         repo.atualizar_auditoria(auditoria_id, status="erro", erro=str(exc)[:500])
