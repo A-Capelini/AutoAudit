@@ -3,3 +3,4 @@
 streamlit>=1.50
 pandas
 tzdata  # fuso America/Sao_Paulo no frontend (necessário no Windows)
+requests  # chamada à API do backend (cai no modo simulado se ela estiver fora)

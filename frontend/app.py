@@ -4,7 +4,7 @@ import html
 import pandas as pd
 import streamlit as st
 
-from mock_data import analisar_documento
+from api_client import ErroApi, analisar, estado_api, url_api
 
 st.set_page_config(page_title="AutoAudit", page_icon="🛡️", layout="wide")
 
@@ -54,12 +54,20 @@ def pagina_nova():
         value=True,
         help="Testa em ambiente de laboratório isolado se os controles descritos existem de fato.",
     )
-    if com_verif:
+    if com_verif and estado_api(url_api()):
+        st.caption("Nesta versão do backend a Verificação Prática ainda não é executada: "
+                   "o relatório virá com essa parte marcada como não executada.")
+    elif com_verif:
         st.caption("Os testes rodam apenas contra o laboratório isolado (DVWA, Juice Shop, Metasploitable).")
 
     if st.button("Analisar política", type="primary", disabled=arquivo is None):
-        with st.spinner("Lendo cláusulas e comparando com a base normativa…"):
-            rel = analisar_documento(arquivo.name, arquivo.getvalue(), com_verif)
+        try:
+            with st.spinner("Lendo cláusulas e comparando com a base normativa…"):
+                rel, origem = analisar(arquivo.name, arquivo.getvalue(), com_verif)
+        except ErroApi as erro:
+            st.error(f"Não foi possível analisar o documento: {erro}")
+            return
+        rel["origem"] = origem  # só do frontend: "api" (backend real) ou "simulado"
         st.session_state.relatorio = rel
         st.session_state.historico.insert(0, rel)
         st.session_state.ir_para = "Resultado"
@@ -75,6 +83,9 @@ def pagina_resultado():
 
     st.title("Resultado da auditoria")
     st.caption(f"{rel['arquivo']} — analisado em {rel['data']}")
+    if rel.get("origem") == "simulado":
+        st.warning("Resultado SIMULADO: a API do backend não estava disponível quando esta auditoria "
+                   "foi feita, então os dados abaixo são de demonstração e não vêm da análise do documento.")
 
     c1, c2, c3 = st.columns([1.3, 1, 1])
     with c1:
@@ -183,6 +194,11 @@ with st.sidebar:
     st.caption("Auditoria de políticas de segurança com PLN")
     st.radio("Navegação", list(PAGINAS), key="pagina", label_visibility="collapsed")
     st.divider()
-    st.caption("Versão de demonstração: dados simulados até a integração com o backend.")
+    saude = estado_api(url_api())
+    if saude:
+        banco = "MongoDB ok" if saude.get("mongo") == "ok" else "MongoDB indisponível"
+        st.caption(f"Backend conectado ({banco}; busca semântica: {saude.get('busca_semantica', '—')}).")
+    else:
+        st.caption("Backend fora do ar: as análises usam dados simulados (modo demonstração).")
 
 PAGINAS[st.session_state.pagina]()
