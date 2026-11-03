@@ -4,6 +4,9 @@ Sem slides: a apresentação é feita no app rodando. Duração sugerida: 8 a 10
 
 ## Antes de começar (checklist, 17h30)
 
+Documentos reais já testados (guarde em uma pasta à mão): `modelo_politica_seguranca_informacao.pdf` (Governo Digital, nota 4,0), PoSIC UFPE (3,9) e PoSIC IFB (3,7). Não use a PoSIC do SLU-DF (numeração inconsistente).
+
+
 - [ ] `docker compose ps` — `mongo` e `mongo-express` como *running*
 - [ ] `.env` com `MONGO_URI` preenchida
 - [ ] Índice FAISS presente: `ls data/processed/` (`normas.index`, `normas_trechos.json`, `normas_index.json`)
@@ -23,10 +26,11 @@ Sem slides: a apresentação é feita no app rodando. Duração sugerida: 8 a 10
 2. **Status do sistema (30 s).** Sidebar do app e `/saude`: API, MongoDB e busca semântica no ar.
 3. **Auditoria ao vivo (3 min).** Enviar a Nimbus (PDF). Mostrar: nota documental, lacunas por severidade, trecho do documento, problema, sugestão, referência (NIST/LGPD) e MITRE quando houver. Explicar uma lacuna alta (senhas vagas ou incidentes sem prazo/responsável/ANPD) e as "Normas próximas (busca semântica)".
 4. **Correção e nova nota (1 min).** Enviar a Nimbus **revisada** (escrita seguindo as sugestões): nota 5,0, sem lacunas. Mensagem: o relatório é acionável.
-5. **Persistência (1 min).** Aba Histórico do app (lida do MongoDB) e mongo-express (coleções `auditorias`, `relatorios`, `normas`).
-6. **API (1 min).** `/docs`: `POST /auditorias`, `GET /relatorios`. O frontend só consome o contrato.
-7. **Resiliência (30 s, opcional).** Mostrar o modo simulado desligando a API só se houver tempo e confiança.
-8. **Limites e próximos passos (1 min).** Ver abaixo.
+5. **Documento real (1 min, opcional).** Enviar o modelo de política do Governo Digital (nota 4,0, 9 lacunas médias/baixas) ou a PoSIC da UFPE/IFB. Mostrar que o motor lê PDF de 12 a 23 páginas, detecta capítulos e acha lacunas verificáveis. Avisar: são políticas de órgãos públicas, em estilo normativo; a nota é indicativa.
+6. **Persistência (1 min).** Aba Histórico do app (lida do MongoDB) e mongo-express (coleções `auditorias`, `relatorios`, `normas`).
+7. **API (1 min).** `/docs`: `POST /auditorias`, `GET /relatorios`. O frontend só consome o contrato.
+8. **Resiliência (30 s, opcional).** Mostrar o modo simulado desligando a API só se houver tempo e confiança.
+9. **Limites e próximos passos (1 min).** Ver abaixo.
 
 ## O que dizer sobre como funciona
 
@@ -48,6 +52,7 @@ Sem slides: a apresentação é feita no app rodando. Duração sugerida: 8 a 10
 
 ## Limitações assumidas (diga você antes de perguntarem)
 
+- Documentos de órgãos públicos (PoSIC) têm estilo normativo (capítulos, incisos); o motor reconhece "CAPÍTULO", títulos numerados e em maiúsculas, mas PDFs com numeração inconsistente geram seções imprecisas (ex.: PoSIC do SLU-DF).
 - Títulos sem numeração só são reconhecidos se estiverem em maiúsculas ou no estilo Título do Word.
 - Regras em português apenas.
 - Só uma regra de ausência (Encarregado/DPO).

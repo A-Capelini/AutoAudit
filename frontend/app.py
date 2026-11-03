@@ -39,6 +39,15 @@ def faixa(nota: float) -> str:
     return "Conformidade crítica"
 
 
+def rotulo_lacuna(l: dict) -> str:
+    """Título do item: severidade, cláusula e o começo do trecho (várias lacunas caem na mesma cláusula)."""
+    trecho = " ".join(l["trecho"].split())
+    for c in "*_`[]#<>$~":          # o título do expander aceita markdown: evita formatar por acaso
+        trecho = trecho.replace(c, "")
+    trecho = trecho[:70].rstrip() + ("…" if len(l["trecho"]) > 70 else "")
+    return f'{l["severidade"].upper()} · {l["clausula"]} — “{trecho}”'
+
+
 def selo(sev: str) -> str:
     return f'<span class="selo" style="background:{CORES_SEV.get(sev, "#475467")}">{html.escape(sev)}</span>'
 
@@ -117,7 +126,7 @@ def pagina_resultado():
         if not lacunas:
             st.info("Nenhuma lacuna com os filtros escolhidos.")
         for l in lacunas:
-            with st.expander(f'{l["clausula"]}  ·  severidade {l["severidade"]}'):
+            with st.expander(rotulo_lacuna(l)):
                 st.markdown(selo(l["severidade"]), unsafe_allow_html=True)
                 st.markdown("**Trecho original**")
                 st.markdown(f'<div class="trecho">{html.escape(l["trecho"])}</div>', unsafe_allow_html=True)
