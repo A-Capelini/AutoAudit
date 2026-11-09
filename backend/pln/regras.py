@@ -20,13 +20,37 @@ from __future__ import annotations
 
 import re
 
-from .extracao import Secao
+from .extracao import RE_CAPITULO, RE_VERBO_FRASE, Secao
 
 ORDEM_SEVERIDADE = {"alta": 0, "média": 1, "baixa": 2}
+
+# Frases que NÃO são regra da política e não devem gerar lacuna (calibração da Sprint 4):
+#   * avisos de modelo ("IMPORTANTE: este modelo deve ser utilizado como referência…");
+#   * cabeçalhos de capítulo/seção sem verbo ("Seção II Do Tratamento de Incidentes…").
+AVISO_DE_MODELO = r"^\W*(?:importante|nota|observa[çc][ãa]o|obs|aten[çc][ãa]o)\s*:"
+# Em seções de contexto (objetivo, princípios…) "adequado" é redação de propósito, não exigência.
+SECOES_DE_CONTEXTO = r"introdu|prop[óo]sito|objetiv|finalidade|apresenta|princ[ií]pios|atributos"
+MARCADOR_DE_ITEM = r"(?:^|\s)[IVXL]{1,5}\s*[–\-]\s"
 
 
 def _tem(padrao: str, texto: str) -> bool:
     return re.search(padrao, texto, re.IGNORECASE) is not None
+
+
+def _tem_verbo(frase: str) -> bool:
+    """Há verbo de obrigação/atribuição na frase? Tolera a quebra de palavra de alguns PDFs
+    ("dever á ser comunicadas"), que a extração de texto não repara."""
+    return bool(RE_VERBO_FRASE.search(frase)
+                or re.search(r"\bdever\s?[áa]\b|\bdeve[mr]?\b|\bser\b|\bfica(?:m)?\b|\bcab(?:e|em)\b|\bpode(?:m)?\b",
+                             frase, re.IGNORECASE))
+
+
+def _ignorar_frase(frase: str) -> bool:
+    """Aviso de modelo ou cabeçalho de capítulo/seção (sem verbo): não é regra da política."""
+    f = frase.strip()
+    if _tem(AVISO_DE_MODELO, f):
+        return True
+    return bool(RE_CAPITULO.match(f)) and not _tem_verbo(f)
 
 
 def _lacuna(secao: Secao, trecho: str, severidade: str, referencia: str, problema: str,
@@ -91,6 +115,8 @@ def _regra_termo_vago(secao: Secao, frase: str) -> dict | None:
     if vago is None:
         return None
     termo, severidade = vago
+    if severidade == "baixa" and _tem(SECOES_DE_CONTEXTO, secao.titulo):
+        return None  # "uso adequado" no objetivo/princípios é propósito, não exigência verificável
     referencia = next((ref for padrao, ref in TEMAS if _tem(padrao, frase)), REFERENCIA_PADRAO)
     return _lacuna(
         secao, frase, severidade, referencia,
@@ -134,6 +160,23 @@ def _regra_mfa(secao: Secao, frase: str, contexto: str) -> dict | None:
         mitre="T1133 — External Remote Services")
 
 
+def _contexto_de_incidente(secoes: list[Secao]) -> str:
+    """Texto do documento que trata de incidente: cada frase que o cita mais a seguinte (onde costuma
+    vir o prazo: "…incidentes devem ser tratados. O prazo é de 72 horas.").
+
+    Prazo, responsável e comunicação à ANPD definidos em OUTRO capítulo valem, mas só se estiverem
+    junto de uma frase sobre incidente: uma busca no documento todo casaria "imediatamente" ou
+    "titulares de unidade" em frases sem relação com o assunto."""
+    trechos: list[str] = []
+    for s in secoes:
+        for i, f in enumerate(s.sentencas):
+            if _tem(r"\bincidentes?\b", f):
+                trechos.append(f)
+                if i + 1 < len(s.sentencas):
+                    trechos.append(s.sentencas[i + 1])
+    return " ".join(trechos)
+
+
 def _regra_incidente(secao: Secao, frase: str, contexto: str) -> dict | None:
     if not _tem(r"\bincidentes?\b", frase):
         return None
@@ -142,6 +185,8 @@ def _regra_incidente(secao: Secao, frase: str, contexto: str) -> dict | None:
     if _tem(r"\b[IVXL]{1,6}\.?$", frase.strip()):     # fragmento de lista cortado ("…Cibernéticos; e VIII.")
         return None
     if len(frase) < 55 or not _tem(r"trat|respost|comunic|notific|registr|gerenci|report|investig|resolu", frase):
+        return None
+    if not _tem_verbo(frase):                    # nome de equipe/capítulo sem verbo: "Equipe de Tratamento… (ETISI)."
         return None
     if _tem(r"^\W*(?:[IVXL]+|[a-z])\s*[–\-\)]\s", frase) or _tem(r"^[^:]{1,50}:\s", frase):
         return None
@@ -155,7 +200,7 @@ def _regra_incidente(secao: Secao, frase: str, contexto: str) -> dict | None:
     if not _tem(r"encarregad|\bDPO\b|comit[êe]|CSIRT|ETIR|\bCISO\b|gestor de seguran|equipe de resposta|\bSOC\b",
                 contexto):
         faltas.append("responsável designado")
-    if not _tem(r"\bANPD\b|autoridade nacional|titulares?", contexto):
+    if not _tem(r"\bANPD\b|autoridade nacional|titulares? d[eo]s? dados|titulares? afetad", contexto):
         faltas.append("comunicação à ANPD e aos titulares")
     if not faltas:
         return None
@@ -175,6 +220,8 @@ def _regra_legislacao_generica(secao: Secao, frase: str) -> dict | None:
         return None
     if _tem(r"\d|prazo|controles?|encarregad|\bDPO\b|base legal|relat[óo]rio de impacto", frase):
         return None  # a frase traz algo concreto
+    if len(re.findall(MARCADOR_DE_ITEM, frase)) >= 2:
+        return None  # lista de competências ("I – …; II – …"): a menção à lei é de passagem
     return _lacuna(
         secao, frase, "média", "LGPD Art. 46",
         problema="Declaração genérica de conformidade: não cita controles, responsáveis nem prazos "
@@ -199,15 +246,18 @@ def _regra_dispositivo_pessoal(secao: Secao, frase: str, contexto: str) -> dict 
                  "dispositivo (MDM) e possibilidade de apagamento remoto dos dados corporativos.")
 
 
-# Regras por frase, na ordem de prioridade. `uma_vez_por_secao` evita repetir o mesmo achado
-# quando a seção tem várias frases sobre o mesmo tema.
+# Regras por frase, na ordem de prioridade.
+#   contexto: None (só a frase), "secao" (texto da seção) ou "incidente" (texto de todas as seções
+#             que falam de incidente: prazo/responsável/ANPD definidos em outro capítulo valem);
+#   escopo:   None (pode repetir), "secao" ou "documento" (no máximo uma vez), para não repetir o
+#             mesmo achado quando o texto volta ao tema.
 REGRAS_POR_FRASE = [
-    ("legislacao", _regra_legislacao_generica, False, False),
-    ("senha", _regra_senha, False, False),
-    ("mfa", _regra_mfa, True, True),
-    ("incidente", _regra_incidente, True, True),
-    ("dispositivo", _regra_dispositivo_pessoal, True, True),
-]  # (id, função, usa o contexto da seção, dispara no máximo uma vez por seção)
+    ("legislacao", _regra_legislacao_generica, None, None),
+    ("senha", _regra_senha, None, None),
+    ("mfa", _regra_mfa, "secao", "secao"),
+    ("incidente", _regra_incidente, "incidente", "documento"),
+    ("dispositivo", _regra_dispositivo_pessoal, "secao", "secao"),
+]  # (id, função, contexto, escopo)
 
 
 def _regra_sem_encarregado(secoes: list[Secao]) -> dict | None:
@@ -240,19 +290,23 @@ SECOES_IGNORADAS = r"defini[çc]|gloss[áa]rio|\bconceitos\b|refer[êe]ncias (?:
 def detectar_lacunas(secoes: list[Secao]) -> list[dict]:
     """Aplica todas as regras e devolve as lacunas, da mais grave para a menos grave."""
     achados: list[dict] = []
-    for indice, secao in enumerate(secoes):
-        if _tem(SECOES_IGNORADAS, secao.titulo):
-            continue  # glossário, definições e referências não são regras da política
-        contexto = " ".join(secao.sentencas)
+    validas = [s for s in secoes if not _tem(SECOES_IGNORADAS, s.titulo)]  # glossário, definições, referências
+    ctx_incidente = _contexto_de_incidente(validas)
+    usadas_doc: set[str] = set()
+    for secao in validas:
+        contextos = {"secao": " ".join(secao.sentencas), "incidente": ctx_incidente}
         usadas: set[str] = set()
         for frase in secao.sentencas:
+            if _ignorar_frase(frase):
+                continue
             lacuna = None
-            for nome, regra, usa_contexto, so_uma_vez in REGRAS_POR_FRASE:
-                if so_uma_vez and nome in usadas:
+            for nome, regra, ctx, escopo in REGRAS_POR_FRASE:
+                if (escopo == "secao" and nome in usadas) or (escopo == "documento" and nome in usadas_doc):
                     continue
-                lacuna = regra(secao, frase, contexto) if usa_contexto else regra(secao, frase)
+                lacuna = regra(secao, frase, contextos[ctx]) if ctx else regra(secao, frase)
                 if lacuna:
                     usadas.add(nome)
+                    usadas_doc.add(nome)
                     vago = _termo_vago(frase)  # frase com achado específico E termo vago
                     if vago and vago[0].lower() not in lacuna["problema"].lower():
                         lacuna["problema"] += f" Além disso, '{vago[0]}' torna a exigência subjetiva."
