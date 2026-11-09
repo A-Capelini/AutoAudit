@@ -51,10 +51,17 @@ def validar(arquivo: str) -> bool:
             print(f"  {fid}  achou      {lacunas[indice]['severidade']:5} | {lacunas[indice]['referencia']}")
 
     extras = [l for i, l in enumerate(lacunas) if i not in usadas]
-    for l in extras:
+    # Lacunas do "Documento inteiro" são achados de AUSÊNCIA (backup, logs, criptografia…): o gabarito
+    # rotula trechos, não temas ausentes, então elas não entram na conta de falso positivo. Ficam à vista.
+    ausencias = [l for l in extras if l["clausula"] == "Documento inteiro"]
+    falsos = [l for l in extras if l["clausula"] != "Documento inteiro"]
+    for l in falsos:
         print(f"  FALSO POSITIVO: {l['clausula']} | {l['trecho'][:70]}")
-    print(f"  -> achadas {achadas}/{len(FALHAS)}; falsos positivos: {len(extras)}")
-    return achadas == len(FALHAS) and not extras
+    for l in ausencias:
+        print(f"  ausência (sem rótulo no gabarito): {l['trecho']}")
+    print(f"  -> achadas {achadas}/{len(FALHAS)}; falsos positivos: {len(falsos)}"
+          f"; achados de ausência não rotulados: {len(ausencias)}")
+    return achadas == len(FALHAS) and not falsos
 
 
 if __name__ == "__main__":

@@ -29,7 +29,9 @@ SECOES = [
         "a cada 180 dias. A conta é bloqueada após 5 tentativas de login malsucedidas.",
         "Os acessos aos sistemas são concedidos conforme a função de cada colaborador e revistos "
         "semestralmente pelo gestor da área. Os acessos de colaboradores desligados devem ser revogados em "
-        "até 24 horas."]),
+        "até 24 horas.",
+        "Os acessos e os eventos de segurança dos sistemas são registrados em logs, mantidos por 12 meses e "
+        "analisados pela área de TI."]),
     ("5. Acesso remoto", [
         "O acesso remoto à rede da empresa é permitido mediante autorização do gestor imediato e exige "
         "autenticação multifator (MFA) e conexão por VPN corporativa."]),

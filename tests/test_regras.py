@@ -103,5 +103,47 @@ class TestLegislacao(unittest.TestCase):
         self.assertFalse([l for l in r if "genérica" in l["problema"]])
 
 
+TEMAS_EM_FALTA = ("backup", "registros (logs)", "criptografia", "treinamento")
+
+
+def em_falta(lacunas: list[dict]) -> list[str]:
+    return [t for t in TEMAS_EM_FALTA if any(t in l["problema"] for l in lacunas)]
+
+
+class TestAusencias(unittest.TestCase):
+    def test_documento_sem_os_temas_gera_quatro_lacunas_baixas(self):
+        r = detectar_lacunas([secao("Diretrizes", "Os usuários devem proteger seus equipamentos.")])
+        self.assertEqual(em_falta(r), list(TEMAS_EM_FALTA))
+        self.assertTrue(all(l["severidade"] == "baixa" for l in r if l["clausula"] == "Documento inteiro"
+                            and any(t in l["problema"] for t in TEMAS_EM_FALTA)))
+
+    def test_temas_presentes_nao_geram_lacuna(self):
+        r = detectar_lacunas([secao(
+            "Diretrizes",
+            "Cópias de segurança são feitas diariamente. Os acessos são registrados em logs por 12 meses. "
+            "Dados sensíveis devem usar criptografia. Todos devem fazer o treinamento anual.")])
+        self.assertEqual(em_falta(r), [])
+
+    def test_registros_e_monitoramento_contam_como_logs(self):
+        # caso real (Orion): "7. Registros e monitoramento — os eventos relevantes são registrados"
+        r = detectar_lacunas([secao(
+            "Registros e monitoramento", "Os eventos relevantes dos sistemas são registrados e podem ser consultados.")])
+        self.assertNotIn("registros (logs)", em_falta(r))
+
+    def test_registro_do_resultado_do_teste_nao_conta_como_logs(self):
+        # caso real (Nimbus): "o resultado do teste é registrado e arquivado" fala de backup, não de logs
+        r = detectar_lacunas([secao(
+            "Cópias", "A restauração é testada e o resultado do teste é registrado e arquivado.")])
+        self.assertIn("registros (logs)", em_falta(r))
+
+    def test_tema_em_secao_de_definicoes_conta_como_mencao(self):
+        # Limitação assumida: PDFs com numeração inconsistente (ex.: SLU-DF) jogam o corpo da política numa
+        # seção "Conceitos e Definições"; ignorá-la acusaria ausência falsa. Custo: um tema citado só no
+        # glossário esconde a ausência.
+        r = detectar_lacunas([secao("Conceitos e definições", "O monitoramento do uso é feito pela TI."),
+                              secao("Diretrizes", "Os usuários devem proteger seus equipamentos.", numero="2")])
+        self.assertNotIn("registros (logs)", em_falta(r))
+
+
 if __name__ == "__main__":
     unittest.main()

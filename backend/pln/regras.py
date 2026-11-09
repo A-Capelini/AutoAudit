@@ -153,7 +153,7 @@ def _regra_mfa(secao: Secao, frase: str, contexto: str) -> dict | None:
     if _tem(r"multifator|multi-fator|m[úu]ltiplos fatores|dois fatores|duplo fator|\bMFA\b|\b2FA\b", contexto):
         return None  # a seção já exige MFA
     return _lacuna(
-        secao, frase, "alta", "NIST SP 800-53 IA-2(1); CIS Controls v8 6.5",
+        secao, frase, "alta", "NIST SP 800-53 IA-2(1); CIS Controls v8 6.4",
         problema="O acesso remoto não exige autenticação multifator (MFA): só a senha protege a entrada "
                  "pela internet.",
         sugestao="Exigir MFA em todo acesso remoto à rede e aos sistemas corporativos, inclusive VPN.",
@@ -282,6 +282,53 @@ def _regra_sem_encarregado(secoes: list[Secao]) -> dict | None:
         sugestao="Designar formalmente o encarregado e divulgar sua identidade e contato (LGPD, art. 41).")
 
 
+# Regras de AUSÊNCIA por tema: o documento inteiro não toca no assunto. Severidade "baixa" de propósito:
+# uma política de alto nível costuma remeter esses temas a normas complementares, então a ausência é um
+# sinal fraco (e a presença NÃO prova qualidade: "fazemos backup" satisfaz a regra; a vagueza fica a cargo
+# da regra de termos vagos). Referências conferidas no catálogo CIS Controls v8.1.2.
+# (id, padrão de presença, referência, o que falta, sugestão, MITRE)
+AUSENCIAS: list[tuple[str, str, str, str, str, str]] = [
+    ("backup",
+     r"\bbackups?\b|c[óo]pias? de seguran[çc]a|restaura[çc][ãa]o de (?:dados|sistemas)|recupera[çc][ãa]o de desastres?",
+     "NIST SP 800-53 CP-9; CIS Controls v8 11.2",
+     "A política não trata de backup: nada define o que é copiado, com que frequência nem se a restauração é testada.",
+     "Definir rotina de backup (escopo, frequência, retenção, local separado) e testes periódicos de restauração, "
+     "ou remeter a uma norma complementar identificada.",
+     "T1486 — Data Encrypted for Impact"),
+    ("logs",
+     r"\blogs?\b|registros? de (?:acessos?|auditoria|eventos|atividades?)|trilhas? de auditoria"
+     r"|registros? e monitoramento|eventos?\b.{0,60}\bregistrad|registr\w+ (?:de |dos )?(?:acessos?|eventos)"
+     r"|monitoramento|monitora[çc][ãa]o|rastreabilidade",
+     "NIST SP 800-53 AU-2, AU-12; CIS Controls v8 8.2",
+     "A política não trata de registros (logs): nada exige registrar acessos e eventos de segurança nem por quanto "
+     "tempo guardá-los.",
+     "Exigir o registro de acessos e eventos relevantes, o prazo de retenção e quem analisa os registros.",
+     "T1070 — Indicator Removal"),
+    ("criptografia",
+     r"criptograf|cifrad|cifra[çc]|\bTLS\b|\bSSL\b|\bHTTPS\b",
+     "NIST SP 800-53 SC-28, SC-13; CIS Controls v8 3.11",
+     "A política não trata de criptografia: nada exige proteger dados sensíveis armazenados ou em trânsito.",
+     "Exigir criptografia para dados sensíveis em repouso e em trânsito, indicando os casos obrigatórios.",
+     "T1005 — Data from Local System"),
+    ("treinamento",
+     r"treinament|conscientiza|capacita[çc]|sensibiliza|educa[çc][ãa]o em seguran",
+     "NIST SP 800-53 AT-2; CIS Controls v8 14.1",
+     "A política não trata de treinamento: nada prevê conscientização em segurança para os colaboradores.",
+     "Prever programa de conscientização com periodicidade definida (ex.: anual) e registro de participação.",
+     "T1566 — Phishing"),
+]
+
+
+def _regras_de_ausencia(secoes: list[Secao]) -> list[dict]:
+    todo = " ".join(f for s in secoes for f in s.sentencas)
+    documento = Secao(None, "Documento inteiro")
+    return [
+        _lacuna(documento, f"(o documento não menciona {tema})", "baixa", referencia, problema, sugestao, mitre)
+        for tema, padrao, referencia, problema, sugestao, mitre in AUSENCIAS
+        if not _tem(padrao, todo)
+    ]
+
+
 # --------------------------------------------------------------------------- orquestração
 
 SECOES_IGNORADAS = r"defini[çc]|gloss[áa]rio|\bconceitos\b|refer[êe]ncias (?:legais|normativas|bibliogr)|^termos\b"
@@ -319,6 +366,10 @@ def detectar_lacunas(secoes: list[Secao]) -> list[dict]:
     ausencia = _regra_sem_encarregado(secoes)
     if ausencia:
         achados.append(ausencia)
+    # Presença medida no texto INTEIRO (inclusive glossário): PDFs com numeração inconsistente jogam o corpo da
+    # política numa seção "Definições" (ex.: SLU-DF) e acusariam ausência falsa. Limitação assumida: um tema
+    # citado só no glossário esconde a ausência.
+    achados.extend(_regras_de_ausencia(secoes))
 
     achados.sort(key=lambda l: ORDEM_SEVERIDADE[l["severidade"]])  # estável: mantém a ordem do documento
     return achados

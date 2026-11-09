@@ -45,7 +45,7 @@ def analisar_documento(nome_arquivo: str, conteudo: bytes, com_verificacao: bool
             "clausula": "Seção 6.1 — Acesso remoto",
             "trecho": "O acesso remoto é permitido mediante autorização.",
             "severidade": "alta",
-            "referencia": "NIST SP 800-53 IA-2(1); CIS Controls v8 6.5",
+            "referencia": "NIST SP 800-53 IA-2(1); CIS Controls v8 6.4",
             "problema": "Não exige autenticação multifator (MFA) para acessos remotos.",
             "sugestao": "Todo acesso remoto à rede corporativa deve exigir autenticação multifator.",
             "mitre": "T1133 — External Remote Services",
