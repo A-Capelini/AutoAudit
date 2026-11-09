@@ -83,6 +83,7 @@ def analisar_texto(texto: str) -> dict:
 NOTA_MIN_FAMILIA = float(os.getenv("AUTOAUDIT_NOTA_FAMILIA", "0.45"))  # NIST, mesma família do controle da regra
 NOTA_MIN_OUTRA = float(os.getenv("AUTOAUDIT_NOTA_OUTRA", "0.62"))      # NIST, outra família
 NOTA_MIN_LGPD = float(os.getenv("AUTOAUDIT_NOTA_LGPD", "0.66"))        # LGPD (notas inflam: todos os artigos são parecidos)
+NOTA_MIN_CIS = float(os.getenv("AUTOAUDIT_NOTA_CIS", "0.62"))          # CIS Controls v8.1.2 (a calibrar com testar_busca.py)
 MAX_PROXIMAS = 2   # quantas normas "próximas" acrescentar além da referência curada
 TOP_CANDIDATAS = 6  # quantos resultados do FAISS são considerados antes de filtrar
 
@@ -93,6 +94,7 @@ def _pares_curados(referencia: str) -> list[tuple[str, str]]:
     for grupo in re.findall(r"NIST SP 800-53 ((?:[A-Z]{2}-\d+(?:\(\d+\))?(?:,\s*)?)+)", referencia):
         pares += [("NIST_800_53", ident) for ident in re.findall(r"[A-Z]{2}-\d+(?:\(\d+\))?", grupo)]
     pares += [("LGPD", f"Art. {n}") for n in re.findall(r"LGPD Art\. (\d+)", referencia)]
+    pares += [("CIS_V8", n) for n in re.findall(r"CIS Controls v8 (\d{1,2}\.\d{1,2})", referencia)]
     return pares
 
 
@@ -116,6 +118,8 @@ def selecionar_proximas(referencia: str, achados: list[dict]) -> list[dict]:
             continue
         if r["fonte"] == "LGPD":
             minimo = NOTA_MIN_LGPD
+        elif r["fonte"] == "CIS_V8":
+            minimo = NOTA_MIN_CIS
         elif _familia_nist(r["identificador"]) in familias:
             minimo = NOTA_MIN_FAMILIA
         else:
@@ -128,8 +132,8 @@ def selecionar_proximas(referencia: str, achados: list[dict]) -> list[dict]:
 
 
 def _rotulo_norma(fonte: str, identificador: str) -> str:
-    return {"NIST_800_53": f"NIST SP 800-53 {identificador}", "LGPD": f"LGPD {identificador}"}.get(
-        fonte, f"{fonte} {identificador}")
+    return {"NIST_800_53": f"NIST SP 800-53 {identificador}", "LGPD": f"LGPD {identificador}",
+            "CIS_V8": f"CIS Controls v8 {identificador}"}.get(fonte, f"{fonte} {identificador}")
 
 
 def enriquecer_lacunas(lacunas: list[dict], buscador, resolver: Callable[[str, str], object | None]) -> list[dict]:
