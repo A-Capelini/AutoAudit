@@ -12,6 +12,8 @@ Rotas:
     GET  /auditorias        histórico de execuções (mais recentes primeiro)
     GET  /relatorios        histórico de relatórios completos (usado pela tela Histórico)
     GET  /relatorios/{id}   relatório completo, no formato do contrato com o frontend
+    GET  /politicas         uma linha por política (versões agrupadas pelo nome do arquivo)
+    GET  /politicas/{chave} versões da política, nota a nota, com lacunas resolvidas/novas/persistentes
     GET  /saude             a API e o MongoDB estão de pé?
 
 Todo acesso ao banco passa por db/repositorio.py. Ciclo de uma auditoria:
@@ -37,6 +39,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from pymongo.errors import PyMongoError
 
+from backend.historico import historico_da_politica, resumo_das_politicas
 from backend.pln.analisador import analisar_texto, enriquecer_lacunas
 from backend.pln.busca_normas import BuscadorNormas
 from backend.pln.extracao import ErroExtracao, detectar_formato, extrair_texto
@@ -223,6 +226,21 @@ def criar_auditoria(
         raise HTTPException(500, "Falha interna ao analisar o documento (veja o log da API).") from exc
 
     return relatorio_para_contrato(repo.obter_relatorio(relatorio_id))
+
+
+@app.get("/politicas", summary="Políticas auditadas, agrupando as versões")
+def listar_politicas(repo: Repositorio = Depends(get_repo)) -> list[dict]:
+    docs = repo.listar_relatorios(limite=200)
+    return resumo_das_politicas([relatorio_para_contrato(d) for d in docs])
+
+
+@app.get("/politicas/{chave}", summary="Histórico e comparação entre versões de uma política")
+def historico_politica(chave: str, repo: Repositorio = Depends(get_repo)) -> dict:
+    docs = repo.listar_relatorios(limite=200)
+    hist = historico_da_politica([relatorio_para_contrato(d) for d in docs], chave)
+    if hist is None:
+        raise HTTPException(status_code=404, detail="Política não encontrada.")
+    return hist
 
 
 @app.get("/auditorias", response_model=list[ItemAuditoria], summary="Histórico de auditorias")

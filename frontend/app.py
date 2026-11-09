@@ -4,7 +4,7 @@ import html
 import pandas as pd
 import streamlit as st
 
-from api_client import ErroApi, analisar, estado_api, listar_historico, url_api
+from api_client import ErroApi, analisar, estado_api, historico_politica, listar_historico, listar_politicas, url_api
 
 st.set_page_config(page_title="AutoAudit", page_icon="🛡️", layout="wide")
 
@@ -77,6 +77,8 @@ def pagina_nova():
             st.error(f"Não foi possível analisar o documento: {erro}")
             return
         rel["origem"] = origem  # só do frontend: "api" (backend real) ou "simulado"
+        listar_politicas.clear()
+        historico_politica.clear()
         listar_historico.clear()  # a auditoria nova já está no banco: o histórico precisa reler
         st.session_state.relatorio = rel
         st.session_state.historico.insert(0, rel)
@@ -199,6 +201,49 @@ def pagina_historico():
         st.session_state.relatorio = hist[escolha]
         st.session_state.ir_para = "Resultado"
         st.rerun()
+    if do_banco is not None:
+        secao_versoes()
+
+
+def secao_versoes():
+    """Evolução e comparação entre versões da mesma política (só com o backend no ar)."""
+    politicas = listar_politicas(url_api())
+    if not politicas:
+        return
+    multi = [p for p in politicas if p["versoes"] > 1]
+    st.divider()
+    st.subheader("Versões de uma política")
+    if not multi:
+        st.caption("Ainda não há política com mais de uma versão. Audite uma nova versão do mesmo arquivo "
+                   "(ex.: política_v2.pdf) para ver o que melhorou. As versões são agrupadas pelo nome do arquivo, "
+                   "ignorando extensão, v2, final, datas e (1).")
+        return
+    por_chave = {p["chave"]: p for p in multi}
+    chave = st.selectbox("Política", list(por_chave),
+                         format_func=lambda c: f'{por_chave[c]["arquivo"]} ({por_chave[c]["versoes"]} versões)')
+    hist = historico_politica(url_api(), chave)
+    if not hist:
+        st.warning("Não foi possível carregar o histórico dessa política.")
+        return
+    versoes = hist["versoes"]
+    st.line_chart(pd.DataFrame({"Saúde de Compliance": [v["saude_compliance"] for v in versoes]},
+                               index=[f'{i:02d} · {v["data"]}' for i, v in enumerate(versoes, start=1)]))
+    i = st.selectbox("Comparar a versão", range(1, len(versoes)),
+                     format_func=lambda k: f'{versoes[k]["data"]} — {versoes[k]["arquivo"]}  (com a anterior)')
+    v = versoes[i]
+    cmp = v["comparacao"]
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Saúde de Compliance", f'{v["saude_compliance"]} / 5', f'{cmp["variacao_saude"]:+.2f}')
+    c2.metric("Lacunas resolvidas", len(cmp["resolvidas"]))
+    c3.metric("Lacunas novas", len(cmp["novas"]), delta_color="inverse")
+    c4.metric("Persistem", len(cmp["persistentes"]))
+    for titulo, chave_l in (("Resolvidas", "resolvidas"), ("Novas", "novas"), ("Persistem", "persistentes")):
+        if cmp[chave_l]:
+            with st.expander(f"{titulo} ({len(cmp[chave_l])})"):
+                for l in cmp[chave_l]:
+                    st.markdown(f"- {rotulo_lacuna(l)}")
+    st.caption("O pareamento compara o tipo do problema e a semelhança do trecho: uma lacuna reescrita "
+               "de forma muito diferente aparece como resolvida e nova ao mesmo tempo.")
 
 
 # ---------------------------------------------------------------- navegação

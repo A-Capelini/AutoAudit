@@ -53,6 +53,26 @@ def listar_historico(url: str, limite: int = 50) -> list[dict] | None:
         return None
 
 
+@st.cache_data(ttl=3, show_spinner=False)
+def listar_politicas(url: str) -> list[dict] | None:
+    """Políticas com as versões agrupadas (GET /politicas), ou None se a API não responde."""
+    try:
+        r = requests.get(f"{url}/politicas", timeout=10)
+        return r.json() if r.status_code == 200 else None
+    except (requests.RequestException, ValueError):
+        return None
+
+
+@st.cache_data(ttl=3, show_spinner=False)
+def historico_politica(url: str, chave: str) -> dict | None:
+    """Versões de uma política com a comparação entre elas (GET /politicas/{chave})."""
+    try:
+        r = requests.get(f"{url}/politicas/{requests.utils.quote(chave, safe='')}", timeout=10)
+        return r.json() if r.status_code == 200 else None
+    except (requests.RequestException, ValueError):
+        return None
+
+
 def _detalhe(resposta: requests.Response) -> str:
     try:
         detalhe = resposta.json().get("detail")
