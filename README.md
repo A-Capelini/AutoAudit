@@ -205,9 +205,9 @@ CIS Controls v8 e templates do SANS exigem download manual; a ISO 27001 **não d
 | Sprint | Entrega | Status |
 |---|---|---|
 | 1 — Frontend | Interface funcionando | Entregue em 13/10 (interface com dados simulados) |
-| 2 — Banco de dados | DER, base com as coleções criadas e CRUD funcionando | Pronto; **entrega e demonstração em 20/10** |
-| 3 — Backend | Lógica, FastAPI e integração do motor de PLN | API, extração de texto, regras de lacunas, busca FAISS e gravação no MongoDB prontas; **apresentação em 03/11** |
-| 4 — Apresentação | Preparação e entrega final (24/11) | Pendente |
+| 2 — Banco de dados | DER, base com as coleções criadas e CRUD funcionando | Entregue em 20/10 (professor confirmou o MongoDB) |
+| 3 — Backend | Lógica, FastAPI e integração do motor de PLN | **Concluída e apresentada em 03/11** (aprovada pelo professor): API, extração de texto, regras de lacunas, busca FAISS e gravação no MongoDB |
+| 4 — Apresentação | Preparação e entrega final (24/11); prova em 01/12 | **Em andamento** (ver lista abaixo) |
 
 Sprint 2 (banco de dados):
 
@@ -217,7 +217,7 @@ Sprint 2 (banco de dados):
 - [x] CRUD das três coleções (`db/repositorio.py`) e demonstração (`db/demo_crud.py`)
 - [x] Dados: 1.087 normas e 6 auditorias/3 relatórios de exemplo; dump para replicação (`db/dump/`)
 - [x] Roteiros de replicação e de demonstração (`docs/`)
-- [ ] Apresentar o banco em 20/10
+- [x] Banco apresentado em 20/10
 
 Frontend (Sprint 1):
 
@@ -234,9 +234,8 @@ Sprint 3 (backend):
 - [x] Busca semântica (FAISS) ligando cada lacuna às normas (`backend/pln/busca_normas.py`)
 - [x] Validação contra o gabarito da Nimbus: 6 de 6 falhas achadas, sem falso positivo (`backend/validar_gabarito.py`)
 - [x] Frontend integrado à API (com fallback simulado) e histórico lido do MongoDB
-- [ ] Verificação Prática real (pentest em laboratório): `nota_pratica` e `verificacoes` ainda vazios
-- [ ] Calibrar a nota documental e ampliar as regras (hoje só as quatro políticas de teste foram usadas)
-- [ ] Testar o motor de PLN com templates do SANS
+- [x] Documentação do backend: [`docs/AutoAudit_Documentacao_Backend_Sprint3.pdf`](docs/AutoAudit_Documentacao_Backend_Sprint3.pdf)
+- Itens que ficaram para a Sprint 4: Verificação Prática, calibração da nota e novas regras, teste com templates do SANS (ver abaixo)
 
 Trabalho de dados em paralelo (alimenta a Sprint 3):
 
@@ -244,6 +243,18 @@ Trabalho de dados em paralelo (alimenta a Sprint 3):
 - [x] Parser que estrutura cada fonte em documentos curtos: NIST (1.014 controles ativos) e LGPD (73 artigos vigentes) prontos; faltam CIS e SANS
 - [x] Embeddings (`paraphrase-multilingual-mpnet-base-v2`) e índice FAISS (`db/build_faiss.py`; normas longas divididas em trechos)
 - [x] Coleções do MongoDB (`normas`, `auditorias`, `relatorios`)
+
+Sprint 4 (apresentação final em 24/11; prova em 01/12), na ordem de execução:
+
+- [x] README atualizado e documentação do backend em `docs/`
+- [ ] Mais regras de detecção e calibração da nota, re-rodando o gabarito
+- [ ] Carga do CIS Controls v8 e dos templates do SANS na base de normas, com reconstrução do índice FAISS
+- [ ] Histórico por política (versões da mesma política) a partir do MongoDB
+- [ ] Artigo no modelo do professor, slides e roteiro da apresentação final
+- [ ] Por último, só com o resto validado: Verificação Prática (DVWA, Juice Shop, Metasploitable; nmap/OWASP ZAP via contrato JSON; 3 a 5 controles; Gap Analysis). Se não houver tempo, a apresentação segue o cenário FCS da proposta, dito com franqueza
+- LLM + RAG fica fora do escopo desta entrega (o motor segue por regras, sem LLM); é a evolução natural
+
+> O índice FAISS (`data/processed/`) não vai para o Git: ao reconstruí-lo, copie os três arquivos juntos para as outras máquinas.
 
 ### Ferramentas de apoio (Sprint 3)
 
