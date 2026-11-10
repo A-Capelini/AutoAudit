@@ -14,13 +14,17 @@ ficam atrás de formulário/paywall.
 
 ## ✋ Manual — exige cadastro gratuito
 
-### CIS Controls v8
+### CIS Controls v8.1.2
 1. Acesse: https://learn.cisecurity.org/cis-controls-download-v8
 2. Preencha o formulário (nome, e-mail institucional — pode usar o e-mail da Fatec).
 3. Você recebe PDF + **planilha Excel** com todos os Safeguards.
-4. Salve a planilha em `data/raw/cis_controls_v8.xlsx`.
-5. Para converter em JSON: `pandas.read_excel(...).to_dict(orient="records")`
-   (a coluna de Implementation Group já vem pronta pra filtrar por IG1/IG2/IG3).
+4. Salve a planilha em `data/raw/cis/CIS_Controls_Version_8.1.2___March_2025.xlsx` (o nome que o CIS entrega;
+   `db/seed_normas.py` procura exatamente esse caminho).
+5. Com o MongoDB no ar, carregue as 153 salvaguardas e reconstrua o índice:
+   `python db/seed_normas.py --fonte cis` e depois `python db/build_faiss.py`
+   (a coluna de Implementation Group, IG1/IG2/IG3, já vem na planilha).
+6. **Licença CC BY-NC-ND 4.0:** não commite a planilha nem o texto carregado, e não regenere o dump
+   (`db/dump/`) a partir de um banco que tenha o CIS. Regras completas em `docs/licencas_fontes.md`.
 
 ### SANS Institute — templates de política de segurança
 1. Acesse: https://www.sans.org/information-security-policy/
@@ -49,8 +53,9 @@ O que é seguro usar como "resumo público do Anexo A":
 Se quiser citar a norma formalmente no artigo/relatório, use a referência
 bibliográfica (já está no documento da proposta) sem reproduzir o texto.
 
-## Próximo passo depois de baixar tudo
+## Depois de baixar
 
-Estruturar cada fonte em documentos curtos (por cláusula/artigo/controle) e
-gerar os embeddings pra indexar no FAISS — isso é o restante da Sprint 1
-(`ingestão, limpeza e estruturação... geração dos embeddings iniciais`).
+Com os arquivos em `data/raw/`, `python db/seed_normas.py` estrutura cada fonte cujo arquivo existe em documentos
+curtos (um por controle, artigo ou salvaguarda) na coleção `normas`, e `python db/build_faiss.py` gera os
+embeddings e o índice FAISS em `data/processed/` (pasta ignorada pelo Git: copie os três arquivos juntos para as
+outras máquinas).
