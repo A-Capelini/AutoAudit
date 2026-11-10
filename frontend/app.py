@@ -1,14 +1,25 @@
 """AutoAudit — frontend (Streamlit). Rodar, a partir da raiz do repositório: streamlit run frontend/app.py"""
 import html
+import sys
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from api_client import ErroApi, analisar, estado_api, historico_politica, listar_historico, listar_politicas, url_api
+# O Streamlit só põe frontend/ no caminho de importação; a raiz entra para reusar o agrupamento do histórico
+# (backend/historico.py usa só a biblioteca padrão, então funciona também no Streamlit Cloud).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from api_client import ErroApi, analisar, estado_api, historico_politica, listar_historico, listar_politicas, url_api  # noqa: E402
+from backend.historico import chave_politica, rotulo_politica  # noqa: E402
 
 st.set_page_config(page_title="AutoAudit", page_icon="🛡️", layout="wide")
 
 CORES_SEV = {"alta": "#B42318", "média": "#B45309", "baixa": "#475467"}
+
+AVISO_MOTOR = ("Auditorias feitas em momentos diferentes podem ter sido calculadas por versões diferentes do motor "
+               "de regras (por exemplo, antes e depois da calibração da Sprint 4). A variação da curva mistura "
+               "mudanças no documento e mudanças no motor.")
 
 st.markdown(
     """
@@ -171,10 +182,18 @@ def pagina_historico():
         st.info("Nenhuma auditoria salva ainda." if do_banco is not None else
                 "Nenhuma auditoria nesta sessão. Com o backend no ar, o histórico fica salvo no MongoDB.")
         return
-    politicas = sorted({r["arquivo"] for r in hist})
-    filtro = st.selectbox("Política", ["Todas"] + politicas) if len(politicas) > 1 else "Todas"
+    # Mesmo agrupamento da seção "Versões de uma política": versões do mesmo arquivo caem na mesma política.
+    contagem: dict[str, int] = {}
+    for r in hist:
+        k = chave_politica(r["arquivo"])
+        contagem[k] = contagem.get(k, 0) + 1
+    politicas = sorted(contagem)
+    filtro = (st.selectbox("Política", ["Todas"] + politicas,
+                           format_func=lambda c: "Todas" if c == "Todas" else
+                           f"{rotulo_politica(c)} · {contagem[c]} {'versão' if contagem[c] == 1 else 'versões'}")
+              if len(politicas) > 1 else "Todas")
     if filtro != "Todas":
-        hist = [r for r in hist if r["arquivo"] == filtro]
+        hist = [r for r in hist if chave_politica(r["arquivo"]) == filtro]
     def fmt(x):
         return "—" if x is None else f"{x:.1f}"
 
@@ -193,6 +212,7 @@ def pagina_historico():
             index=[f'{i:02d} · {r["data"][:5]} {r["data"][-5:]}' for i, r in enumerate(cronologico, start=1)],
         )
         st.line_chart(evolucao)
+        st.caption(AVISO_MOTOR)
     elif len(hist) > 1:
         st.caption("Escolha uma política acima para ver a evolução da nota dela.")
     escolha = st.selectbox("Abrir auditoria", range(len(hist)),
@@ -220,7 +240,7 @@ def secao_versoes():
         return
     por_chave = {p["chave"]: p for p in multi}
     chave = st.selectbox("Política", list(por_chave),
-                         format_func=lambda c: f'{por_chave[c]["arquivo"]} ({por_chave[c]["versoes"]} versões)')
+                         format_func=lambda c: f'{rotulo_politica(c)} · {por_chave[c]["versoes"]} versões')
     hist = historico_politica(url_api(), chave)
     if not hist:
         st.warning("Não foi possível carregar o histórico dessa política.")
@@ -228,6 +248,7 @@ def secao_versoes():
     versoes = hist["versoes"]
     st.line_chart(pd.DataFrame({"Saúde de Compliance": [v["saude_compliance"] for v in versoes]},
                                index=[f'{i:02d} · {v["data"]}' for i, v in enumerate(versoes, start=1)]))
+    st.caption(AVISO_MOTOR)
     i = st.selectbox("Comparar a versão", range(1, len(versoes)),
                      format_func=lambda k: f'{versoes[k]["data"]} — {versoes[k]["arquivo"]}  (com a anterior)')
     v = versoes[i]

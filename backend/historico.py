@@ -39,6 +39,12 @@ def chave_politica(arquivo: str) -> str:
     return nome.strip() or "sem nome"
 
 
+def rotulo_politica(chave: str) -> str:
+    """Chave -> rótulo legível e neutro, que não é o nome de nenhum arquivo ('politica seguranca' -> 'Politica Seguranca').
+    A chave já vem sem acentos; o rótulo os perde de propósito para não parecer o nome de uma versão específica."""
+    return chave.title()
+
+
 def _trecho(l: dict) -> str:
     return " ".join((l.get("trecho") or "").lower().split())
 

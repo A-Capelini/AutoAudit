@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.historico import (chave_politica, comparar_lacunas, historico_da_politica,  # noqa: E402
-                               resumo_das_politicas)
+                               resumo_das_politicas, rotulo_politica)
 
 
 def lac(problema, trecho="Os backups devem ser testados sempre que possível."):
@@ -29,6 +29,13 @@ class TestChave(unittest.TestCase):
 
     def test_nome_so_de_marcas_nao_gera_chave_vazia(self):
         self.assertEqual(chave_politica("final.pdf"), "sem nome")
+
+    def test_rotulo_do_grupo_e_igual_para_todas_as_versoes(self):
+        # o seletor agrupado mostra o rótulo da chave, nunca o nome de uma versão específica
+        nomes = ["Politica_Seguranca_Nimbus_Logistica.docx", "Politica_Seguranca_Nimbus_Logistica_Revisada.docx",
+                 "Politica_Seguranca_Nimbus_Logistica_v2 (1).pdf"]
+        rotulos = {rotulo_politica(chave_politica(n)) for n in nomes}
+        self.assertEqual(rotulos, {"Politica Seguranca Nimbus Logistica"})
 
 
 class TestComparar(unittest.TestCase):
