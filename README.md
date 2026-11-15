@@ -13,7 +13,8 @@ O AutoAudit lê uma política de segurança da informação (PDF/DOCX), usa PLN 
 **Saúde de Compliance (0 a 5)** e gera um plano de ação com sugestão de nova redação. Um módulo de
 **Verificação Prática** testa, em laboratório isolado, se os controles descritos na política realmente existem.
 
-Stack: Python · Streamlit · FastAPI · LangChain + LLM · MongoDB (não relacional) · FAISS (busca semântica).
+Stack: Python · Streamlit · FastAPI · MongoDB (não relacional) · FAISS (busca semântica). O motor de PLN é por
+regras explícitas, **sem LLM** (LLM + RAG fica como evolução futura).
 
 > **Escopo ético:** todos os testes práticos rodam apenas contra ambientes de laboratório intencionalmente
 > vulneráveis e isolados (DVWA, OWASP Juice Shop, Metasploitable). Nenhum sistema de terceiros é testado.
@@ -36,11 +37,11 @@ AutoAudit/
 │   ├── validar_gabarito.py    # confere as regras com o gabarito da política da Nimbus
 │   ├── testar_busca.py        # mostra o que o FAISS devolve para cada lacuna
 │   └── testar_api.py          # teste de ponta a ponta com a API no ar
-├── tests/                     # testes automatizados (unittest): regras, normas/CIS e histórico
+├── tests/                     # testes automatizados (unittest): regras, normas/CIS, histórico e amostras
 ├── data/
 │   ├── raw/                   # arquivos baixados (não vão para o Git)
 │   ├── processed/             # índice FAISS e metadados gerados (não vão para o Git)
-│   └── samples/               # política fictícia (Nimbus Logística) e gabarito para testes
+│   └── samples/               # políticas de teste (Nimbus, NexusPay, Alfa Saúde, Órion), gabarito e Nimbus revisada
 ├── db/
 │   ├── init_db.py             # cria coleções, validadores $jsonSchema e índices (idempotente)
 │   ├── seed_normas.py         # carrega NIST 800-53, LGPD e CIS Controls v8.1.2 (planilha manual) em `normas`
@@ -140,8 +141,9 @@ versões diferentes do motor de regras (a tela avisa isso).
 Testes (os de `tests/` e o gabarito não precisam do MongoDB no ar):
 
 ```bash
-python -m unittest discover -s tests      # 42 testes: regras, normas/CIS e histórico
+python -m unittest discover -s tests      # 52 testes: regras, normas/CIS, histórico e amostras (precisa do pymongo)
 python backend/validar_gabarito.py        # regras x gabarito da Nimbus (6 falhas plantadas, 0 falsos positivos)
+python backend/analisar_arquivo.py data/samples/Politica_Seguranca_NexusPay.pdf   # política independente: 4,8/5, 1 lacuna
 python backend/avaliar_politicas.py       # comportamento do motor nas políticas de data/raw/politicas_reais
 python backend/testar_busca.py            # normas que o FAISS associa a cada lacuna (precisa do índice)
 python backend/testar_api.py              # ponta a ponta, com a API e o MongoDB no ar
@@ -157,6 +159,9 @@ Limitações desta versão (ditas com franqueza na apresentação):
   conhecem. A busca semântica liga cada lacuna às normas do NIST, da LGPD e do CIS, com filtro de similaridade.
 - As regras só entendem **português**, e as de ausência (backup, logs, criptografia, treinamento) detectam apenas se
   o tema aparece no texto, não a qualidade do que está escrito.
+- As regras checam se o tema aparece e se a cláusula é objetiva, **não se o valor atende ao benchmark**: a regra de
+  senha aceita qualquer número (8 caracteres com MFA está dentro do CIS 5.2, 4 caracteres não, e o motor não
+  distingue), e prazos como os 15 dias da LGPD (art. 19) não são comparados com a lei.
 - A **nota documental** é uma fórmula provisória (peso por severidade sobre o máximo possível), ainda não calibrada
   com rótulos de um especialista.
 - A **Verificação Prática não é executada**: `nota_pratica` e `verificacoes` voltam vazios e o frontend mostra
@@ -207,6 +212,21 @@ São 1.858 vetores de 768 dimensões (`paraphrase-multilingual-mpnet-base-v2`) c
 1.705 (NIST e LGPD). Na primeira execução o modelo (cerca de 1,1 GB) é baixado do Hugging Face. Os três arquivos
 de `data/processed/` não vão para o Git: ao reconstruir o índice, copie-os **juntos** para as outras máquinas.
 
+## Arquivos que não vão para o Git
+
+Ao configurar outra máquina, estes itens precisam ser recriados ou copiados à mão:
+
+| Item | Como obter |
+|---|---|
+| `.env` | `cp .env.example .env` e ajuste; nunca commite |
+| `.streamlit/secrets.toml` | só se usar segredos locais; no Streamlit Cloud ficam em *Secrets* |
+| `data/raw/nist_sp800-53_rev5_catalog.json`, `data/raw/lgpd_artigos.json` | `python scripts/download_nist_oscal.py` e `python scripts/download_lgpd.py` |
+| `data/raw/cis/*.xlsx` | download manual (CC BY-NC-ND 4.0); ver `scripts/DATASETS.md` |
+| `data/raw/politicas_reais/` | PDFs reais usados por `avaliar_politicas.py` e pela demonstração: copie à mão |
+| `data/processed/` (`normas.index`, `normas_trechos.json`, `normas_index.json`) | `python db/build_faiss.py`, ou copie os **três juntos** e confira com `sha256sum` |
+| Dados do MongoDB | volume Docker de cada máquina; restaure `db/dump/` (auditorias de teste não são compartilhadas) |
+| Modelo de embeddings (cerca de 1,1 GB) | baixa sozinho na primeira execução com internet; para uso offline, rode uma vez antes |
+
 ## Baixar o dataset
 
 Com o ambiente `autoaudit` ativado:
@@ -247,7 +267,7 @@ regenerado** a partir de um banco que já tenha o CIS. Regras completas em
 | 1 — Frontend | Interface funcionando | Entregue em 13/10 (interface com dados simulados) |
 | 2 — Banco de dados | DER, base com as coleções criadas e CRUD funcionando | Entregue em 20/10 (professor confirmou o MongoDB) |
 | 3 — Backend | Lógica, FastAPI e integração do motor de PLN | **Concluída e apresentada em 03/11** (aprovada pelo professor): API, extração de texto, regras de lacunas, busca FAISS e gravação no MongoDB |
-| 4 — Apresentação | Preparação e entrega final (24/11); prova em 01/12 | **Em andamento** (ver lista abaixo) |
+| 4 — Apresentação | Prévia (17/11), entrega final (24/11) e prova (01/12) | **Em andamento** (ver lista abaixo) |
 
 Sprint 2 (banco de dados):
 
@@ -294,8 +314,13 @@ Sprint 4 (apresentação final em 24/11; prova em 01/12), na ordem de execução
   `docs/licencas_fontes.md`
 - [ ] Templates do SANS: adiados (ver acima)
 - [x] Histórico por política (versões da mesma política) a partir do MongoDB: rotas `/politicas` e comparação de lacunas
-- [ ] Pico de memória durante uma auditoria e ensaio completo da apresentação no notebook, offline (até ~15/11)
-- [ ] Artigo no modelo do professor (ainda não recebido), slides e roteiro da apresentação final
+- [x] Pico de memória e tempo por auditoria medidos no notebook (i7-5500U, 8 GB, offline): pico da API ≈ 1.594 MiB;
+  mediana ≈ 2,4 s e máximo ≈ 3,6 s em PDFs reais (`backend/medir_memoria.py`); ensaio completo offline feito
+- [x] Teste independente com a política NexusPay (`data/samples/`, escrita por outra IA): revelou 2 falsos positivos
+  (BYOD com controles em outra seção e o "adequado" do art. 33 da LGPD), corrigidos em `backend/pln/regras.py`
+  (4,5/3 lacunas → 4,8/1); regressão em `tests/test_amostras.py`
+- [x] Slides da prévia de 17/11 (5 min) prontos
+- [ ] Artigo no modelo do professor (ainda não recebido; há versão provisória), slides e roteiro da apresentação final (24/11)
 - [ ] Por último, só com o resto validado: Verificação Prática (DVWA, Juice Shop, Metasploitable; nmap/OWASP ZAP via contrato JSON; 3 a 5 controles; Gap Analysis). Se não houver tempo, a apresentação segue o cenário FCS da proposta, dito com franqueza
 - LLM + RAG fica fora do escopo desta entrega (o motor segue por regras, sem LLM); é a evolução natural
 
@@ -305,7 +330,8 @@ Sprint 4 (apresentação final em 24/11; prova em 01/12), na ordem de execução
 
 - `python backend/analisar_arquivo.py <arquivo> [--busca]` — analisa um PDF/DOCX no terminal, sem API nem banco.
 - `python backend/avaliar_politicas.py [pasta] [--salvar f.json | --comparar f.json]` — mede o motor numa pasta de políticas.
-- `python -m unittest discover -s tests` — testes automatizados (regras, normas/CIS e histórico).
+- `python -m unittest discover -s tests` — testes automatizados (regras, normas/CIS, histórico e amostras).
+- `data/samples/Politica_Seguranca_NexusPay.pdf` — política sintética independente, usada como teste de regressão.
 - `python db/limpar_testes.py [--apagar]` — lista (ou apaga) as auditorias de teste, preservando os exemplos do seed.
 - `data/samples/Politica_Seguranca_Nimbus_Logistica_Revisada.docx` — versão corrigida da Nimbus (fictícia), nota 5,0.
 - `docs/roteiro_demonstracao_backend.md` — roteiro da demonstração ao vivo.
