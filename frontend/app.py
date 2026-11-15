@@ -227,7 +227,7 @@ def pagina_historico():
                 [f'{i:02d} · {r["data"][:5]} {r["data"][-5:]}' for i, r in enumerate(cronologico, start=1)],
                 [r["saude_compliance"] for r in cronologico],
             ),
-            use_container_width=True,
+            width="stretch",
         )
         st.caption(AVISO_MOTOR)
     elif len(hist) > 1:
@@ -266,10 +266,10 @@ def secao_versoes():
     st.altair_chart(
         grafico_evolucao([f'{i:02d} · {v["data"]}' for i, v in enumerate(versoes, start=1)],
                          [v["saude_compliance"] for v in versoes]),
-        use_container_width=True,
+        width="stretch",
     )
     st.caption(AVISO_MOTOR)
-    i = st.selectbox("Comparar a versão", range(1, len(versoes)),
+    i = st.selectbox("Comparar a versão", range(1, len(versoes)), index=len(versoes) - 2,
                      format_func=lambda k: f'{versoes[k]["data"]} — {versoes[k]["arquivo"]}  (com a anterior)')
     v = versoes[i]
     cmp = v["comparacao"]
