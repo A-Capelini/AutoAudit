@@ -1,5 +1,5 @@
 """
-API do AutoAudit (Sprint 3).
+API do AutoAudit (Sprint 4).
 
 Rodar a partir da RAIZ do repositório, com o MongoDB no ar e o .env configurado (MONGO_URI):
 
@@ -71,10 +71,10 @@ async def ciclo_de_vida(_app: FastAPI):
 
 app = FastAPI(
     title="AutoAudit API",
-    version="0.3.0",
+    version="0.4.0",
     description="Auditoria de políticas de segurança da informação com PLN. "
-                "Sprint 3: extração de texto, regras de detecção de lacunas, busca semântica nas "
-                "normas (FAISS) e gravação no MongoDB.",
+                "Sprint 4: extração de texto, regras de detecção de lacunas, busca semântica nas "
+                "normas (FAISS), gravação no MongoDB e histórico por política.",
     lifespan=ciclo_de_vida,
 )
 

@@ -3,6 +3,7 @@ import html
 import sys
 from pathlib import Path
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -20,6 +21,20 @@ CORES_SEV = {"alta": "#B42318", "média": "#B45309", "baixa": "#475467"}
 AVISO_MOTOR = ("Auditorias feitas em momentos diferentes podem ter sido calculadas por versões diferentes do motor "
                "de regras (por exemplo, antes e depois da calibração da Sprint 4). A variação da curva mistura "
                "mudanças no documento e mudanças no motor.")
+
+
+def grafico_evolucao(rotulos: list[str], notas: list[float]) -> alt.Chart:
+    """Curva da Saúde de Compliance com o eixo fixo em 0–5 (a nota nunca sai desse intervalo)."""
+    dados = pd.DataFrame({"versão": rotulos, "Saúde de Compliance": notas})
+    return (
+        alt.Chart(dados)
+        .mark_line(point=True)
+        .encode(
+            x=alt.X("versão:N", sort=None, title=None, axis=alt.Axis(labelAngle=-30, labelLimit=220)),
+            y=alt.Y("Saúde de Compliance:Q", scale=alt.Scale(domain=[0, 5]), title="Saúde de Compliance (0–5)"),
+            tooltip=["versão", "Saúde de Compliance"],
+        )
+    )
 
 st.markdown(
     """
@@ -207,11 +222,13 @@ def pagina_historico():
         # O rótulo leva o número da auditoria: duas auditorias no mesmo minuto têm a mesma
         # data, e um índice repetido faz o gráfico de linha colapsar em um traço vertical.
         cronologico = list(reversed(hist))
-        evolucao = pd.DataFrame(
-            {"Saúde de Compliance": [r["saude_compliance"] for r in cronologico]},
-            index=[f'{i:02d} · {r["data"][:5]} {r["data"][-5:]}' for i, r in enumerate(cronologico, start=1)],
+        st.altair_chart(
+            grafico_evolucao(
+                [f'{i:02d} · {r["data"][:5]} {r["data"][-5:]}' for i, r in enumerate(cronologico, start=1)],
+                [r["saude_compliance"] for r in cronologico],
+            ),
+            use_container_width=True,
         )
-        st.line_chart(evolucao)
         st.caption(AVISO_MOTOR)
     elif len(hist) > 1:
         st.caption("Escolha uma política acima para ver a evolução da nota dela.")
@@ -246,8 +263,11 @@ def secao_versoes():
         st.warning("Não foi possível carregar o histórico dessa política.")
         return
     versoes = hist["versoes"]
-    st.line_chart(pd.DataFrame({"Saúde de Compliance": [v["saude_compliance"] for v in versoes]},
-                               index=[f'{i:02d} · {v["data"]}' for i, v in enumerate(versoes, start=1)]))
+    st.altair_chart(
+        grafico_evolucao([f'{i:02d} · {v["data"]}' for i, v in enumerate(versoes, start=1)],
+                         [v["saude_compliance"] for v in versoes]),
+        use_container_width=True,
+    )
     st.caption(AVISO_MOTOR)
     i = st.selectbox("Comparar a versão", range(1, len(versoes)),
                      format_func=lambda k: f'{versoes[k]["data"]} — {versoes[k]["arquivo"]}  (com a anterior)')

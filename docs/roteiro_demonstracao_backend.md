@@ -1,7 +1,9 @@
-# AutoAudit — Roteiro de apresentação do backend (Sprint 3)
+# AutoAudit — Roteiro de demonstração do backend (atualizado em 15/11/2026 para a apresentação final)
 
-**03/11/2026, 19h · Fatec Cotia · PLN · Prof. Braz Izaias da Silva Junior**
-**Formato:** sem slides; demonstração direto na aplicação rodando. **Duração:** 8 a 10 minutos.
+**24/11/2026 · Fatec Cotia · PLN · Prof. Braz Izaias da Silva Junior**
+**Formato:** demonstração direto na aplicação rodando (os slides são tratados à parte). **Duração:** 8 a 10 minutos.
+
+Os números abaixo foram medidos no ensaio de 15/11 no notebook (offline, `HF_HUB_OFFLINE=1`). A Verificação Prática ainda não está nesta versão do roteiro.
 
 ## 1. Preparação (até 18h30)
 
@@ -9,7 +11,7 @@ Na raiz do repositório, nesta ordem:
 
 1. `docker compose ps`: `mongo` e `mongo-express` em *running*.
 2. `ls data/processed/`: `normas.index`, `normas_trechos.json`, `normas_index.json` presentes.
-3. `python db/limpar_testes.py --apagar`: deixa só os exemplos do seed (3 aparecem no Histórico).
+3. `python db/limpar_testes.py --apagar`: deixa só os 6 exemplos do seed.
 4. **Terminal 1:** `HF_HUB_OFFLINE=1 uvicorn backend.main:app` (**sem `--reload`**; o modo offline evita depender do Wi-Fi para carregar o modelo, que já está em cache).
 5. **Terminal 2:** `streamlit run frontend/app.py`.
 6. Abrir `http://localhost:8000/saude`: deve mostrar `api: ok`, `mongo: ok`, `busca_semantica: pronta` (aguarde até ~30 s).
@@ -20,37 +22,37 @@ Na raiz do repositório, nesta ordem:
 
 | Arquivo | Onde | Resultado esperado |
 |---|---|---|
-| `Politica_Seguranca_Nimbus_Logistica.pdf` | `data/samples/` | nota 2,5; 6 lacunas |
+| `Politica_Seguranca_Nimbus_Logistica.docx` | `data/samples/` | nota 2,2; 8 lacunas (3 altas, 3 médias, 2 baixas) |
 | `Politica_Seguranca_Nimbus_Logistica_Revisada.docx` | `data/samples/` | nota 5,0; 0 lacunas |
-| `modelo_politica_seguranca_informacao.pdf` (Governo Digital) | Downloads | nota 4,0; 9 lacunas |
-| PoSIC UFPE / PoSIC IFB (reserva) | Downloads | 3,9 / 3,7 |
+| `modelo_politica_seguranca_informacao.pdf` (Governo Digital) | `data/raw/politicas_reais/` | nota 4,2; 7 lacunas |
+| PoSIC IFB (reserva) | `data/raw/politicas_reais/` | nota 4,1; 8 lacunas |
 
-Não use a PoSIC do SLU-DF (numeração inconsistente no PDF).
+Não use a PoSIC do SLU-DF (numeração inconsistente no PDF). A Nimbus em PDF não foi medida com o motor atual: use a .docx. Cada auditoria leva cerca de 1 s nos documentos curtos e até uns 3,6 s nos PDFs reais longos.
 
 ## 2. Sequência da demonstração
 
 | Tempo | Ação | O que dizer |
 |---|---|---|
-| 0:00 | Abrir o app na tela Nova auditoria | "O AutoAudit audita políticas de segurança da informação com PLN e dá uma nota de Saúde de Compliance de 0 a 5. Hoje mostro o backend da Sprint 3 funcionando de ponta a ponta, não simulado." |
+| 0:00 | Abrir o app na tela Nova auditoria | "O AutoAudit audita políticas de segurança da informação com PLN e dá uma nota de Saúde de Compliance de 0 a 5. Hoje mostro o sistema funcionando de ponta a ponta, não simulado, rodando offline neste notebook." |
 | 0:30 | Mostrar a barra lateral e `/saude` | "A barra lateral mostra o estado real: API, MongoDB e busca semântica. É a mesma informação que a rota `/saude` devolve." |
-| 1:00 | Enviar a **Nimbus PDF** | "A Nimbus é uma política fictícia que escrevemos com falhas de propósito. O motor extrai o texto, divide em seções, aplica regras e consulta a base de normas." |
-| 1:40 | Resultado: nota 2,5 e abrir as 3 lacunas altas (senhas, acesso remoto, incidentes) | "Cada lacuna mostra o trecho original, o problema, a norma de referência (NIST e LGPD), a técnica MITRE quando existe e uma sugestão de nova redação. Aqui: 'senhas seguras' não é mensurável; acesso remoto sem MFA; incidentes sem prazo, responsável nem comunicação à ANPD." |
-| 3:00 | Apontar "Normas próximas (busca semântica)" numa referência | "Além da referência das regras, o índice FAISS com 1.705 trechos de NIST e LGPD sugere normas próximas do trecho." |
-| 3:30 | Enviar a **Nimbus revisada** (.docx) | "Reescrevemos a política seguindo as sugestões do relatório: 12 caracteres e bloqueio, MFA, prazo e responsável para incidentes, DPO." |
-| 4:10 | Nota 5,0 e nenhuma lacuna | "A nota sobe de 2,5 para 5,0. O relatório é acionável: dá para corrigir e provar a melhora." |
-| 4:40 | Enviar o **modelo do Governo Digital** (documento real) | "Agora um documento real, público, de 24 páginas, que não escrevemos. O motor remove cabeçalhos e rodapés, reconhece as seções e acha lacunas verificáveis." |
-| 5:30 | Nota 4,0 e abrir 1 ou 2 lacunas | "É um estilo normativo de órgão público, então a nota é indicativa. Vê-se que as lacunas são médias e baixas, como 'periodicamente' e 'adequado' sem critério." |
-| 6:15 | Aba Histórico; escolher a Nimbus PDF | "O histórico vem do MongoDB, não da sessão do navegador. Por política, o gráfico mostra a evolução da nota ao longo do tempo." |
+| 1:00 | Enviar a **Nimbus .docx** | "A Nimbus é uma política fictícia que escrevemos com falhas de propósito. O motor extrai o texto, divide em seções, aplica regras e consulta a base de normas." |
+| 1:40 | Resultado: nota 2,2 e abrir as 3 lacunas altas (conferir no ensaio quais temas aparecem) | "Cada lacuna mostra o trecho original, o problema, a norma de referência (NIST e LGPD), a técnica MITRE quando existe e uma sugestão de nova redação. Leia em voz alta o trecho, o problema e a sugestão de uma delas." |
+| 3:00 | Apontar "Normas próximas (busca semântica)" numa referência | "Além da referência das regras, o índice FAISS com 1.858 trechos de NIST, LGPD e CIS Controls sugere normas próximas do trecho." |
+| 3:30 | Enviar a **Nimbus revisada** (.docx) | "Reescrevemos a política seguindo as sugestões do relatório." |
+| 4:10 | Nota 5,0 e nenhuma lacuna | "A nota sobe de 2,2 para 5,0. O relatório é acionável: dá para corrigir e provar a melhora." |
+| 4:40 | Enviar o **modelo do Governo Digital** (documento real) | "Agora um documento real e público, que não escrevemos. O motor remove cabeçalhos e rodapés, reconhece as seções e acha lacunas verificáveis." |
+| 5:30 | Nota 4,2 e abrir 1 ou 2 lacunas | "É um estilo normativo de órgão público, então a nota é indicativa. Vê-se que as lacunas são médias e baixas, como 'periodicamente' e 'adequado' sem critério." |
+| 6:15 | Aba Histórico; escolher "Politica Seguranca Nimbus Logistica" e comparar a **Revisada × a original** | "O histórico vem do MongoDB. As versões da mesma política ficam agrupadas, e a comparação mostra a nota de 2,2 para 5,0 (+2,80) e as 8 lacunas resolvidas, 0 novas. Aviso na tela: auditorias de momentos diferentes podem usar versões diferentes do motor." Não use a comparação padrão (a que abre sozinha cruza com um exemplo do seed). |
 | 6:45 | mongo-express: `auditorias`, `relatorios` | "Cada auditoria tem estado (pendente, processando, concluída ou erro) e o relatório gravado, ligado às normas da coleção `normas`." |
 | 7:30 | `/docs` do FastAPI | "A API é documentada automaticamente: `POST /auditorias`, `GET /relatorios`. O frontend só consome o contrato." |
-| 8:15 | Limites e próximos passos | "Hoje é regra e busca semântica, sem LLM. A **Verificação Prática**, o pentest controlado em laboratório, **ainda não foi executada**: a nota é só documental. É a próxima etapa." |
+| 8:15 | Limites e próximos passos | "Hoje é regra e busca semântica, sem LLM, e a nota ainda não foi calibrada com um especialista. A **Verificação Prática**, o pentest controlado em laboratório, **ainda não foi executada**: a nota é só documental. É a próxima etapa." |
 
 ## 3. Como funciona (para explicar se pedirem)
 
 - **Pipeline:** arquivo → texto (pypdf / python-docx) → seções e sentenças → regras → lacunas → nota → busca semântica de normas → grava no MongoDB.
 - **Regras (regex):** senha, MFA em acesso remoto, incidente (prazo, responsável, ANPD), declaração genérica de legislação, dispositivo pessoal, ausência de DPO e termos vagos ("sempre que possível", "periodicamente", "quando necessário").
 - **Nota documental:** pesos alta = 3, média = 2, baixa = 1. Fórmula: `5 × (1 − peso_total / (3 × unidades))`, mínimo 0. Unidades = maior entre o número de seções, 5 e 1 a cada 10 frases (para documento longo não ser punido só pelo tamanho). Saúde de Compliance = nota documental enquanto não há Verificação Prática; depois, média das duas.
-- **FAISS:** 1.705 vetores (768 dimensões), modelo `paraphrase-multilingual-mpnet-base-v2`, NIST SP 800-53 + LGPD. Filtro por família de controle para cortar ruído.
+- **FAISS:** 1.858 vetores (768 dimensões; 1.705 sem o CIS), modelo `paraphrase-multilingual-mpnet-base-v2`, NIST SP 800-53 + LGPD + CIS Controls v8.1.2. Filtro por família de controle para cortar ruído.
 - **MongoDB:** coleções `normas`, `auditorias` e `relatorios`, validador `$jsonSchema`, índices únicos e regras de integridade em `db/repositorio.py`.
 - **Validação:** gabarito da Nimbus com 6 lacunas plantadas: 6 de 6 achadas, 0 falsos positivos; versão revisada: 0 lacunas.
 
@@ -97,16 +99,17 @@ Banco de dados e modelagem (Sprint 2), frontend (Sprint 1) e agora o backend int
 ## 6. Limitações assumidas (diga você antes de perguntarem)
 
 - Regras por regex, sem LLM; só português.
-- Só uma regra de ausência (Encarregado/DPO).
+- Regras de ausência detectam só a presença do tema, não a qualidade do que está escrito.
 - Regra de senha aceita qualquer valor numérico mencionado, mesmo fraco.
 - Títulos sem numeração só são reconhecidos em maiúsculas ou no estilo Título do Word.
 - Documentos de órgãos públicos (PoSIC) têm estilo normativo; a nota é indicativa.
 - **Verificação Prática ainda não implementada.**
-- Demo local: o Streamlit Cloud não alcança a API nem o MongoDB do notebook.
+- Demo local: o Streamlit Cloud não alcança a API nem o MongoDB do notebook (no Cloud o app roda em modo simulado).
+- A Nimbus Revisada é um documento fictício, editado para chegar a 5,0.
 
 ## 7. Depois da apresentação
 
-`git pull` (ver se o Moisés enviou algo) → `git push`. Atualizar o README com o status da Sprint 3.
+`git pull` (ver se o Moisés enviou algo) → `git push`.
 
 ## 8. Comandos de emergência
 
