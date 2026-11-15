@@ -145,5 +145,50 @@ class TestAusencias(unittest.TestCase):
         self.assertNotIn("registros (logs)", em_falta(r))
 
 
+class TestCalibracaoNexusPay(unittest.TestCase):
+    """Falsos positivos achados na política sintética da NexusPay (15/11/2026)."""
+
+    BYOD = "Aplica-se a dispositivos de endpoint da empresa ou BYOD (Bring Your Own Device) homologados."
+
+    def test_byod_com_controles_em_outra_secao_nao_gera_lacuna(self):
+        r = detectar_lacunas([
+            secao("Escopo e aplicabilidade", self.BYOD),
+            secao("Segurança de endpoint",
+                  "Estações de trabalho e dispositivos móveis devem possuir criptografia de disco completo "
+                  "e bloqueio automático de tela.", numero="5")])
+        self.assertFalse([l for l in r if "dispositivos pessoais" in l["problema"]])
+
+    def test_byod_sem_nenhum_controle_continua_gerando(self):
+        r = detectar_lacunas([secao("Escopo", self.BYOD),
+                              secao("Acesso", "Os usuários devem acessar os sistemas pela rede interna.", numero="2")])
+        self.assertTrue([l for l in r if "dispositivos pessoais" in l["problema"]])
+
+    def test_grau_de_protecao_adequado_da_lgpd_nao_gera_lacuna(self):
+        r = detectar_lacunas([secao(
+            "Transferência internacional",
+            "A transferência internacional de dados somente ocorrerá para países que proporcionem grau de "
+            "proteção de dados adequado ou mediante garantias contratuais auditáveis.")])
+        self.assertFalse([l for l in r if "adequado" in l["problema"]])
+
+    def test_adequado_fora_de_expressao_legal_continua_gerando(self):
+        r = detectar_lacunas([secao("Diretrizes", "O acesso remoto deve usar um nível de segurança adequado.")])
+        self.assertTrue([l for l in r if "adequado" in l["problema"]])
+
+    def test_trecho_longo_mostra_o_gatilho_e_corta_em_palavra(self):
+        longa = ("As diretrizes aplicam-se a " + "colaboradores e terceiros da empresa, " * 14
+                 + "e a equipamentos próprios dos usuários homologados.")
+        r = [l for l in detectar_lacunas([secao("Escopo", longa)]) if "dispositivos pessoais" in l["problema"]]
+        self.assertEqual(len(r), 1)
+        trecho = r[0]["trecho"]
+        self.assertIn("equipamentos próprios", trecho)
+        self.assertLessEqual(len(trecho), 410)
+        self.assertTrue(trecho.startswith("…"))
+
+    def test_trecho_curto_nao_muda(self):
+        r = detectar_lacunas([secao("Diretrizes", "Os backups devem ser testados sempre que possível.")])
+        vago = [l for l in r if "sempre que possível" in l["problema"]][0]
+        self.assertEqual(vago["trecho"], "Os backups devem ser testados sempre que possível.")
+
+
 if __name__ == "__main__":
     unittest.main()

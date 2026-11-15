@@ -53,9 +53,32 @@ def _ignorar_frase(frase: str) -> bool:
     return bool(RE_CAPITULO.match(f)) and not _tem_verbo(f)
 
 
+LIMITE_TRECHO = 400
+
+
+def _recorte(trecho: str, foco: str | None = None, limite: int = LIMITE_TRECHO) -> str:
+    """Trecho exibido no relatório: no máximo `limite` caracteres, sempre cortado em limite de palavra e
+    marcado com reticências. Se `foco` (regex) casa além do corte, a janela é centrada nele, para que o
+    leitor veja a expressão que disparou a regra (antes o corte seco podia esconder o gatilho)."""
+    if len(trecho) <= limite:
+        return trecho
+    inicio = 0
+    achou = re.search(foco, trecho, re.IGNORECASE) if foco else None
+    if achou and achou.end() > limite - 20:
+        inicio = max(0, achou.start() - limite // 2)
+        if inicio > 0:                           # começa em limite de palavra
+            proximo_espaco = trecho.find(" ", inicio)
+            inicio = proximo_espaco + 1 if proximo_espaco != -1 else inicio
+    janela = trecho[inicio:inicio + limite]
+    if inicio + limite < len(trecho):            # há texto depois: corta na última palavra inteira
+        ultimo_espaco = janela.rfind(" ")
+        janela = (janela[:ultimo_espaco] if ultimo_espaco > limite // 2 else janela).rstrip(" ,;:") + "…"
+    return ("…" if inicio > 0 else "") + janela
+
+
 def _lacuna(secao: Secao, trecho: str, severidade: str, referencia: str, problema: str,
-            sugestao: str, mitre: str | None = None) -> dict:
-    return {"clausula": secao.rotulo, "trecho": trecho[:400], "severidade": severidade,
+            sugestao: str, mitre: str | None = None, foco: str | None = None) -> dict:
+    return {"clausula": secao.rotulo, "trecho": _recorte(trecho, foco), "severidade": severidade,
             "referencia": referencia, "problema": problema, "sugestao": sugestao, "mitre": mitre}
 
 
@@ -100,11 +123,20 @@ FREQUENCIA_CONCRETA = (r"\ba cada\b|pelo menos|ao menos|no m[ií]nimo|\b\d+\s*(?
                        r"|\banual|semestral|trimestral|mensal|semanal|di[aá]ri[oa]")
 
 
+# Expressões que repetem o texto da lei: "adequado" ali é o termo legal, não vagueza da política
+# (ex.: LGPD art. 33, I — transferência para país com "grau de proteção de dados pessoais adequado").
+# Sugerir prazo ou frequência nesses trechos destruiria o sentido da cláusula.
+EXPRESSAO_LEGAL_ADEQUADO = (r"(?:grau|n[ií]vel) de prote[çc][ãa]o de dados(?: pessoais)?\s+adequad"
+                            r"|adequad[oa]s? ao previsto n[ae]st[ae] lei")
+
+
 def _termo_vago(frase: str) -> tuple[str, str] | None:
     for padrao, severidade in TERMOS_VAGOS:
         achou = re.search(padrao, frase, re.IGNORECASE)
         if achou:
             if _tem(TERMOS_DE_FREQUENCIA, achou.group(0)) and _tem(FREQUENCIA_CONCRETA, frase):
+                continue
+            if _tem(r"adequad", achou.group(0)) and _tem(EXPRESSAO_LEGAL_ADEQUADO, frase):
                 continue
             return achou.group(0), severidade
     return None
@@ -123,7 +155,8 @@ def _regra_termo_vago(secao: Secao, frase: str) -> dict | None:
         problema=f"A expressão '{termo}' deixa a regra sem critério verificável: não dá para "
                  "auditar quando ela foi ou não cumprida.",
         sugestao=f"Trocar '{termo}' por prazo, frequência ou responsável explícitos "
-                 "(ex.: 'a cada 90 dias', 'em até 24 horas', 'pelo gestor de TI').")
+                 "(ex.: 'a cada 90 dias', 'em até 24 horas', 'pelo gestor de TI').",
+        foco=re.escape(termo))
 
 
 # --------------------------------------------------------------------------- regras específicas
@@ -231,9 +264,21 @@ def _regra_legislacao_generica(secao: Secao, frase: str) -> dict | None:
                  "por cada uma.")
 
 
+GATILHO_DISPOSITIVO_PESSOAL = (r"\b(?:celulares?|notebooks?|smartphones?|aparelhos?|equipamentos?) pr[óo]prios?\b"
+                               r"|dispositivos? (?:pessoais|particulares)|\bBYOD\b")
+# Frases do documento inteiro que tratam de dispositivos: os controles do aparelho costumam vir em outro
+# capítulo ("Segurança de Endpoint") e não no escopo, onde o BYOD é citado.
+TEMA_DISPOSITIVO = (r"dispositivos?|endpoints?|esta[çc][õo]es de trabalho|m[óo]veis|celulares?|notebooks?"
+                    r"|smartphones?|aparelhos?|\bBYOD\b")
+
+
+def _contexto_de_dispositivos(secoes: list[Secao]) -> str:
+    """Texto, no documento inteiro, das frases que falam de dispositivos/endpoints."""
+    return " ".join(f for s in secoes for f in s.sentencas if _tem(TEMA_DISPOSITIVO, f))
+
+
 def _regra_dispositivo_pessoal(secao: Secao, frase: str, contexto: str) -> dict | None:
-    if not _tem(r"\b(?:celulares?|notebooks?|smartphones?|aparelhos?|equipamentos?) pr[óo]prios?\b"
-                r"|dispositivos? (?:pessoais|particulares)|\bBYOD\b", frase):
+    if not _tem(GATILHO_DISPOSITIVO_PESSOAL, frase):
         return None
     if _tem(r"\bMDM\b|gest[ãa]o de dispositivos|criptograf|bloqueio de tela|antiv[íi]rus|apagamento remoto"
             r"|\bsenha|autoriza", contexto):
@@ -243,12 +288,14 @@ def _regra_dispositivo_pessoal(secao: Secao, frase: str, contexto: str) -> dict 
         problema="Permite dispositivos pessoais acessarem dados da organização sem exigir controles mínimos "
                  "(bloqueio de tela, criptografia, gestão do aparelho).",
         sugestao="Condicionar o uso a bloqueio de tela, criptografia do aparelho, registro/gestão do "
-                 "dispositivo (MDM) e possibilidade de apagamento remoto dos dados corporativos.")
+                 "dispositivo (MDM) e possibilidade de apagamento remoto dos dados corporativos.",
+        foco=GATILHO_DISPOSITIVO_PESSOAL)
 
 
 # Regras por frase, na ordem de prioridade.
-#   contexto: None (só a frase), "secao" (texto da seção) ou "incidente" (texto de todas as seções
-#             que falam de incidente: prazo/responsável/ANPD definidos em outro capítulo valem);
+#   contexto: None (só a frase), "secao" (texto da seção), "incidente" (texto de todas as seções
+#             que falam de incidente: prazo/responsável/ANPD definidos em outro capítulo valem) ou
+#             "dispositivo" (a seção mais as frases do documento inteiro sobre dispositivos/endpoints);
 #   escopo:   None (pode repetir), "secao" ou "documento" (no máximo uma vez), para não repetir o
 #             mesmo achado quando o texto volta ao tema.
 REGRAS_POR_FRASE = [
@@ -256,7 +303,7 @@ REGRAS_POR_FRASE = [
     ("senha", _regra_senha, None, None),
     ("mfa", _regra_mfa, "secao", "secao"),
     ("incidente", _regra_incidente, "incidente", "documento"),
-    ("dispositivo", _regra_dispositivo_pessoal, "secao", "secao"),
+    ("dispositivo", _regra_dispositivo_pessoal, "dispositivo", "secao"),
 ]  # (id, função, contexto, escopo)
 
 
@@ -339,9 +386,12 @@ def detectar_lacunas(secoes: list[Secao]) -> list[dict]:
     achados: list[dict] = []
     validas = [s for s in secoes if not _tem(SECOES_IGNORADAS, s.titulo)]  # glossário, definições, referências
     ctx_incidente = _contexto_de_incidente(validas)
+    ctx_dispositivos = _contexto_de_dispositivos(validas)
     usadas_doc: set[str] = set()
     for secao in validas:
-        contextos = {"secao": " ".join(secao.sentencas), "incidente": ctx_incidente}
+        texto_secao = " ".join(secao.sentencas)
+        contextos = {"secao": texto_secao, "incidente": ctx_incidente,
+                     "dispositivo": texto_secao + " " + ctx_dispositivos}
         usadas: set[str] = set()
         for frase in secao.sentencas:
             if _ignorar_frase(frase):
